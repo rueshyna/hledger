@@ -1,0 +1,72 @@
+name:                hledger-lots
+version:             0.1.0.0
+github:              "githubuser/hledger-lots"
+license:             BSD-3-Clause
+author:              "Rueshyna"
+maintainer:          "rueshyna@gmail.com"
+copyright:           "2024 Rueshyna"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/rueshyna/hledger-lots#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+  dependencies:
+    - safe >=0.3.19
+    - text >=1.2.4.1
+    - hledger >=1.32.1 && <1.33
+    - hledger-lib >=1.32.1 && <1.33
+    - containers
+    - data-default
+    - microlens
+    - extra
+    - text-show
+    - ansi-terminal
+
+executables:
+  hledger-lots:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hledger-lots
+    - text >=1.2.4.1
+    - hledger >=1.32.1 && <1.33
+
+tests:
+  hledger-lots-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hledger-lots

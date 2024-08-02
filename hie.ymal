@@ -1,0 +1,61 @@
+cradle:
+  stack:
+    - path: "hledger/./"
+      component: "hledger:lib"
+
+    - path: "hledger/app/hledger-cli.hs"
+      component: "hledger:exe:hledger"
+
+    - path: "hledger/app/Paths_hledger.hs"
+      component: "hledger:exe:hledger"
+
+    - path: "hledger/test"
+      component: "hledger:test:unittest"
+
+    - path: "hledger/bench/bench.hs"
+      component: "hledger:bench:bench"
+
+    - path: "hledger-lib/./"
+      component: "hledger-lib:lib"
+
+    - path: "hledger-lib/./"
+      component: "hledger-lib:test:doctest"
+
+    - path: "hledger-lib/test"
+      component: "hledger-lib:test:doctest"
+
+    - path: "hledger-lib/./"
+      component: "hledger-lib:test:unittest"
+
+    - path: "hledger-lib/test"
+      component: "hledger-lib:test:unittest"
+
+    - path: "hledger-lots/src"
+      component: "hledger-lots:lib"
+
+    - path: "hledger-lots/app/Main.hs"
+      component: "hledger-lots:exe:hledger-lots"
+
+    - path: "hledger-lots/test"
+      component: "hledger-lots:test:hledger-lots-test"
+
+    - path: "hledger-ui/./"
+      component: "hledger-ui:lib"
+
+    - path: "hledger-ui/app/hledger-ui.hs"
+      component: "hledger-ui:exe:hledger-ui"
+
+    - path: "hledger-ui/app/Paths_hledger_ui.hs"
+      component: "hledger-ui:exe:hledger-ui"
+
+    - path: "hledger-web/./"
+      component: "hledger-web:lib"
+
+    - path: "hledger-web/app/main.hs"
+      component: "hledger-web:exe:hledger-web"
+
+    - path: "hledger-web/app/Paths_hledger_web.hs"
+      component: "hledger-web:exe:hledger-web"
+
+    - path: "hledger-web/test"
+      component: "hledger-web:test:test"

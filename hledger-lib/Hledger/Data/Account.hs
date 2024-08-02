@@ -40,6 +40,7 @@ import qualified Data.Map as M
 import Data.Ord (Down(..))
 import Safe (headMay)
 import Text.Printf (printf)
+import Text.WideString (wbUnpack)
 
 import Hledger.Data.AccountName (expandAccountName, clipOrEllipsifyAccountName)
 import Hledger.Data.Amount

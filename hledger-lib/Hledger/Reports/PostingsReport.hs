@@ -10,16 +10,7 @@ Postings report, used by the register command.
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
-module Hledger.Reports.PostingsReport (
-  PostingsReport,
-  PostingsReportItem,
-  postingsReport,
-  mkpostingsReportItem,
-
-  -- * Tests
-  tests_PostingsReport
-)
-where
+module Hledger.Reports.PostingsReport where
 
 import Data.List (nub, sortOn)
 import Data.List.Extra (nubSort)

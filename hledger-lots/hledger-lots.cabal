@@ -1,0 +1,79 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           hledger-lots
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/rueshyna/hledger-lots#readme>
+homepage:       https://github.com/githubuser/hledger-lots#readme
+bug-reports:    https://github.com/githubuser/hledger-lots/issues
+author:         Rueshyna
+maintainer:     rueshyna@gmail.com
+copyright:      2024 Rueshyna
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/hledger-lots
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_hledger_lots
+  autogen-modules:
+      Paths_hledger_lots
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      ansi-terminal
+    , base >=4.7 && <5
+    , containers
+    , data-default
+    , extra
+    , hledger >=1.32.1 && <1.33
+    , hledger-lib >=1.32.1 && <1.33
+    , microlens
+    , safe >=0.3.19
+    , text >=1.2.4.1
+    , text-show
+  default-language: Haskell2010
+
+executable hledger-lots
+  main-is: Main.hs
+  other-modules:
+      Paths_hledger_lots
+  autogen-modules:
+      Paths_hledger_lots
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hledger >=1.32.1 && <1.33
+    , hledger-lots
+    , text >=1.2.4.1
+  default-language: Haskell2010
+
+test-suite hledger-lots-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_hledger_lots
+  autogen-modules:
+      Paths_hledger_lots
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hledger-lots
+  default-language: Haskell2010
