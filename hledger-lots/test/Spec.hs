@@ -1,2 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+import Test.Hspec
+import Spec.TestCommoditiesTags
+import Spec.TestMarketPrices
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+  hspec testCommoditiesTags
+  hspec testMarketPrices
+  hspec testDecodeTicker

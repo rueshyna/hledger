@@ -26,54 +26,93 @@ source-repository head
 library
   exposed-modules:
       Lib
+      Lib.CommoditiesTags
+      Lib.Config
+      Lib.Error
+      Lib.MarketPrices
+      Lib.Porting
   other-modules:
       Paths_hledger_lots
   autogen-modules:
       Paths_hledger_lots
   hs-source-dirs:
       src
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-missing-export-lists
   build-depends:
-      ansi-terminal
+      aeson
+    , ansi-terminal
     , base >=4.7 && <5
+    , bytestring
+    , case-insensitive
     , containers
     , data-default
     , extra
     , hledger >=1.32.1 && <1.33
     , hledger-lib >=1.32.1 && <1.33
+    , http-client
+    , http-client-tls
+    , http-types
     , microlens
+    , parsec
     , safe >=0.3.19
+    , scientific
     , text >=1.2.4.1
     , text-show
+    , time
+    , vector
+    , yaml
   default-language: Haskell2010
 
 executable hledger-lots
   main-is: Main.hs
-  other-modules:
-      Paths_hledger_lots
-  autogen-modules:
-      Paths_hledger_lots
   hs-source-dirs:
       app
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-missing-export-lists -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , hledger >=1.32.1 && <1.33
     , hledger-lots
     , text >=1.2.4.1
+  default-language: Haskell2010
+
+executable hledger-tickers
+  main-is: Tickers.hs
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-missing-export-lists -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , filepath
+    , hledger >=1.32.1 && <1.33
+    , hledger-lots
+    , parsec
+    , text >=1.2.4.1
+    , time
+    , vector
+    , yaml
   default-language: Haskell2010
 
 test-suite hledger-lots-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Spec.TestCommoditiesTags
+      Spec.TestMarketPrices
       Paths_hledger_lots
   autogen-modules:
       Paths_hledger_lots
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-missing-export-lists -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , bytestring
     , hledger-lots
+    , hspec
+    , parsec
+    , text
+    , time
+    , vector
   default-language: Haskell2010

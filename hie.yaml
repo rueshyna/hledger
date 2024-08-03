@@ -36,6 +36,9 @@ cradle:
     - path: "hledger-lots/app/Main.hs"
       component: "hledger-lots:exe:hledger-lots"
 
+    - path: "hledger-lots/app/Tickers.hs"
+      component: "hledger-lots:exe:hledger-tickers"
+
     - path: "hledger-lots/test"
       component: "hledger-lots:test:hledger-lots-test"
 

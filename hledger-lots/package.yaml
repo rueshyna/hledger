@@ -32,6 +32,7 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -Wno-missing-export-lists
 
 library:
   source-dirs: src
@@ -46,10 +47,22 @@ library:
     - extra
     - text-show
     - ansi-terminal
+    - vector
+    - http-client-tls
+    - http-client
+    - http-types
+    - aeson
+    - case-insensitive
+    - bytestring
+    - time
+    - scientific
+    - yaml
+    - parsec
 
 executables:
   hledger-lots:
     main:                Main.hs
+    other-modules:       []
     source-dirs:         app
     ghc-options:
     - -threaded
@@ -59,6 +72,24 @@ executables:
     - hledger-lots
     - text >=1.2.4.1
     - hledger >=1.32.1 && <1.33
+  hledger-tickers:
+    main:                Tickers.hs
+    other-modules:       []
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hledger-lots
+    - text >=1.2.4.1
+    - hledger >=1.32.1 && <1.33
+    - yaml
+    - filepath
+    - time
+    - containers
+    - parsec
+    - vector
 
 tests:
   hledger-lots-test:
@@ -70,3 +101,10 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hledger-lots
+    - hspec
+    - text
+    - parsec
+    - time
+    - vector
+    - aeson
+    - bytestring
