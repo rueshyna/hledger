@@ -8,15 +8,9 @@ import Lib
 cmdmode :: Mode RawOpts
 cmdmode = hledgerCommandMode (unlines
     -- Command name, then --help text, then _FLAGS; empty help lines get stripped:
-  ["script-example"
-  ,"This is an example of a (hledger-lib-using) hledger script."
-  ,"Usage: hledger-script-example [OPTS] [ARGS]"
-  ,"or:    hledger script-example -- [OPTS] [ARGS]"
-  ,"Save it under another name and customise it."
-  ,"The hledger- name makes it appear in hledger's commands list."
-  ,"Examples:"
-  ,"$ hledger-script-example --help"
-  ,"(this help)"
+  ["hledger-lots"
+  ,"Usage: hledger-lots [OPTS] [ARGS]"
+  ,"or:    hledger lots -- [OPTS] [ARGS]"
     ------------------------------------78----------------------------------------
   ,""
   ,"_FLAGS"
