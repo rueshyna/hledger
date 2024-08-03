@@ -3,7 +3,7 @@
 module Main where
 
 import Hledger.Cli.Script hiding (Group)
-import Lib
+import Lib.Porting
 
 cmdmode :: Mode RawOpts
 cmdmode = hledgerCommandMode (unlines
@@ -24,8 +24,8 @@ main = do
   withJournalDo opts $ \j -> do
     let
       styles = journalCommodityStylesWith HardRounding j
-      rpt =  Lib.postingsReport' rspec j
-      render | fmt=="txt"  = Lib.postingsReportAsText' opts
+      rpt =  postingsReport' rspec j
+      render | fmt=="txt"  = postingsReportAsText' opts
              | fmt=="json" = toJsonText
              | otherwise   = error' $ unsupportedOutputFormatError fmt  -- PARTIAL:
         where fmt = outputFormatFromOpts opts
