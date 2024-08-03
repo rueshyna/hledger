@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Main(main) where
 
 import Hledger.Cli.Script hiding (Group)
 import Lib.Porting
