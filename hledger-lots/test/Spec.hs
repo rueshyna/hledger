@@ -8,4 +8,4 @@ main :: IO ()
 main = do
   hspec testCommoditiesTags
   hspec testMarketPrices
-  hspec testDecodeTicker
+  hspec testDecodeTickerInfo

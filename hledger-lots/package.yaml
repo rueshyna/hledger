@@ -108,3 +108,4 @@ tests:
     - vector
     - aeson
     - bytestring
+    - containers

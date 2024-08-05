@@ -109,6 +109,7 @@ test-suite hledger-lots-test
       aeson
     , base >=4.7 && <5
     , bytestring
+    , containers
     , hledger-lots
     , hspec
     , parsec

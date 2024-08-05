@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Lib.Config where
 
@@ -10,8 +11,11 @@ import           GHC.Generics (Generic)
 
 import           Lib.Error
 
+newtype ApiKey = AK T.Text
+  deriving (Show)
+
 newtype TickersConfig = TickersConfig
-    { yahooFinanceApiKey :: T.Text
+    { yahooFinanceApiKey :: ApiKey
     } deriving (Show, Generic)
 
 newtype Config = Config
@@ -20,7 +24,7 @@ newtype Config = Config
 
 instance Y.FromJSON TickersConfig where
     parseJSON (Y.Object v) = TickersConfig
-        <$> v Y..: "YahooFinanceApiKey"
+        <$> (AK <$> v Y..: "YahooFinanceApiKey")
     parseJSON _ = fail "Expected Object for TickersConfig"
 
 instance Y.FromJSON Config

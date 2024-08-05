@@ -10,34 +10,38 @@ import Data.Aeson (decode)
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
+import qualified Data.Map as MA
+import qualified Lib.CommoditiesTags as L
 
 testMarketPrices :: Spec
 testMarketPrices =
   describe "strPriceDirtive" $ do
-    it "formats the Ticker correctly" $ do
+    it "formats the TickerInfo correctly" $ do
       let marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
-      let ticker = Ticker
-            { tkcommodity = "Gold"
+      let ticker = TickerInfo
+            { tksymbol = L.YT "Gold"
             , tkmarkettime = marketTime
             , tkprice = 1234.56
             , tkunit = "oz"
             }
-      strPriceDirtive ticker `shouldBe` "P 2024-08-02 Gold oz1234.56"
+      let as = L.Aliases $ MA.empty
+      let cn = L.CN $ MA.empty
+      strPriceDirtive as cn ticker `shouldBe` "P 2024-08-02 Gold oz1234.56"
 
-testDecodeTicker :: Spec
-testDecodeTicker =
-  describe "Ticker JSON Decoding" $ do
-    it "decodes a Ticker from JSON" $ do
+testDecodeTickerInfo :: Spec
+testDecodeTickerInfo =
+  describe "TickerInfo JSON Decoding" $ do
+    it "decodes a TickerInfo from JSON" $ do
       let jsonStr = "{ \"symbol\": \"2330.TW\", \"regularMarketTime\": 1722576602, \"regularMarketPrice\": 903.0, \"currency\": \"TWD\" }"
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
-          expectedTicker = Ticker { tkcommodity = "2330.TW", tkmarkettime = marketTime, tkprice = 903.0, tkunit = "TWD" }
-          decodedTicker = decode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Maybe Ticker
-      decodedTicker `shouldBe` Just expectedTicker
-    it "decodes a TickerResponse from JSON" $ do
+          expectedTickerInfo = TickerInfo { tksymbol = L.YT "2330.TW", tkmarkettime = marketTime, tkprice = 903.0, tkunit = "TWD" }
+          decodedTickerInfo = decode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Maybe TickerInfo
+      decodedTickerInfo `shouldBe` Just expectedTickerInfo
+    it "decodes a TickerInfoResponse from JSON" $ do
       let jsonStr = "{\"quoteResponse\": {\"result\": [{\"symbol\": \"2330.TW\", \"regularMarketTime\": 1722576602, \"regularMarketPrice\": 903.0, \"currency\": \"TWD\"}], \"error\": null}}"
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
-          expectedTicker = Ticker { tkcommodity = "2330.TW", tkmarkettime = marketTime, tkprice = 903.0, tkunit = "TWD" }
-          expectedResponse = TickerResponse { tickers = V.fromList [expectedTicker], errorMsg = Nothing }
-          decodedResponse = decode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Maybe TickerResponse
+          expectedTickerInfo = TickerInfo { tksymbol = L.YT "2330.TW", tkmarkettime = marketTime, tkprice = 903.0, tkunit = "TWD" }
+          expectedResponse = TickerInfoResponse { tickersInfo = V.fromList [expectedTickerInfo], errorMsg = Nothing }
+          decodedResponse = decode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Maybe TickerInfoResponse
       decodedResponse `shouldBe` Just expectedResponse
 
