@@ -1,15 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module Main(main) where
 
 import Hledger.Cli.Script hiding (Group)
+import qualified Lib.CommoditiesTags as LCT
 import Lib.MarketPrices as LM
-import Lib.CommoditiesTags as LCT
 import Lib.Config as LC
 import Lib.Error
 
+
 import qualified Data.Text as T
-import qualified Data.Map as M
 
 cmdmode :: Mode RawOpts
 cmdmode = hledgerCommandMode (unlines
@@ -31,8 +32,8 @@ main = do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j
       info <- LCT.parse filepath
-      let taliases :: Either Error LCT.Aliases
-          taliases = (\(_,x,_) -> x) <$> info
+      let tAliases :: Either Error LCT.Aliases
+          tAliases = (\(_,x,_) -> x) <$> info
           cNameInfo :: Either Error LCT.CommodityNames
           cNameInfo = (\(_,_,x) -> x) <$> info
           yTickers :: Either Error [LCT.YTicker]
@@ -46,11 +47,30 @@ main = do
 
       -- get price
       priceM <- sequence $ craw <$> apiToken <*> yTickers
-      let price = join priceM
-      let pdirective = fmap <$> (strPriceDirtive <$> taliases <*> cNameInfo) <*> price
+      let price :: Either Error [TickerInfo]
+          price = join priceM
+
+      let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, T.Text))
+          pdirectiveWithAlias = strPriceDirtive <$> tAliases
+
+      let aux :: [Either Error (LCT.CommodityNames, T.Text)] -> TickerInfo -> [Either Error (LCT.CommodityNames, T.Text)]
+          aux [] a = (pdirectiveWithAlias <*> cNameInfo <*> pure a):[(fmap (,"") cNameInfo)]
+          aux acc@(x:_) a = (pdirectiveWithAlias <*> (fst <$> x) <*> pure a):acc
+
+      let pdirective = foldl' aux [] <$> price
       case pdirective of
         Left e -> print e
-        Right ts -> mapM_ putStrLn $ fmap T.unpack ts
+        Right ts -> do
+          mapM_ putStrLn $ (T.unpack . either (T.pack . show) snd) <$> ts
+          case head ts of
+            Left e -> print e
+            Right e -> do
+              hPutStrLn stderr "-------"
+              hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
+              hPutStrLn stderr "Please check the quotes in .journal are correct."
+              hPutStrLn stderr ""
+              mapM_ (hPutStrLn stderr. toStr) $ LCT.activeSymbol $ fst e
+                where toStr (LCT.S yt) = T.unpack yt
 
 
 

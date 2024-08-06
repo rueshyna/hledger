@@ -38,25 +38,32 @@ data TickerInfo = TickerInfo
   deriving (Show, Generic, Eq)
 
 instance J.FromJSON TickerInfo where
-  parseJSON = J.withObject "TickerInfo"
-    $ \v -> TickerInfo <$> (L.YT <$> v J..: "symbol")
-    <*> v J..: "regularMarketTime"
-    <*> v J..:? "regularMarketPrice" J..!= 0
-    <*> v J..: "currency"
+  parseJSON j@(J.Object v) = do
+    symbol <- v J..:? "symbol"
+    time   <- v J..:? "regularMarketTime"
+    price  <- v J..:? "regularMarketPrice"
+    currency <- v J..:? "currency"
+    let ti = TickerInfo <$> (L.YT <$> symbol) <*> time <*> price <*> currency
+    case ti of
+      Just t -> return t
+      Nothing -> J.prependFailure "Decode TickerInfo fail" $ J.typeMismatch "TickerInfo" j
+
+  parseJSON j = J.prependFailure "Not expected returned body" $ J.typeMismatch "TickerInfo" j
 
 formatUTCTime :: Timestamp -> String
 formatUTCTime (Timestamp t) = formatTime defaultTimeLocale "%Y-%m-%d" t
 
-strPriceDirtive :: L.Aliases -> L.CommodityNames -> TickerInfo -> T.Text
+strPriceDirtive :: L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, T.Text)
 strPriceDirtive (L.Aliases as) (L.CN cn) t =
-   "P " <>
-   T.pack (formatUTCTime (tkmarkettime t)) <> " " <> 
-   cname <> " " <>
-   unit <> T.pack (show $ tkprice t)
-     where yt =  tksymbol t
-           toSymbol (L.YT y) = (L.S y)
-           (L.S cname) = MA.findWithDefault (toSymbol yt) yt cn
-           (L.S unit) = MA.findWithDefault (L.S $ tkunit t) (L.A $ tkunit t) as
+  ( L.CN $ MA.delete yt cn
+  , "P " <>
+    T.pack (formatUTCTime (tkmarkettime t)) <> " " <> 
+    cname <> " " <>
+    unit <> T.pack (show $ tkprice t))
+      where yt =  tksymbol t
+            toSymbol (L.YT y) = (L.S y)
+            (L.S cname) = MA.findWithDefault (toSymbol yt) yt cn
+            (L.S unit) = MA.findWithDefault (L.S $ tkunit t) (L.A $ tkunit t) as
 
 data TickerInfoResponse =
   TickerInfoResponse { tickersInfo :: V.Vector TickerInfo, errorMsg :: Maybe T.Text }
@@ -88,9 +95,9 @@ craw (C.AK key) ss = do
                     }
   response <- httpLbs req man
   let body = responseBody response
-  let quote = J.decode body :: (Maybe TickerInfoResponse)
+  let quote = J.eitherDecode body :: (Either String TickerInfoResponse)
   case quote of
-    Just (TickerInfoResponse q e) -> case e of
+    Right (TickerInfoResponse q e) -> case e of
       Just m  -> return $ Left $ YahooFinanceError m
       Nothing -> return $ Right $ V.toList q
-    Nothing -> return $ Left $ DecodeResponseError body
+    Left e -> return $ Left $ DecodeResponseError e

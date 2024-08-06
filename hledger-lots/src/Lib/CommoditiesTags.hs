@@ -92,6 +92,9 @@ buildCommodityNames cn = CN $ L.foldl' insertCN MA.empty $ filter ctstatus cn
 activeYTicker :: CommodityNames -> [YTicker]
 activeYTicker (CN cm) = MA.keys cm
 
+activeSymbol :: CommodityNames -> [Symbol]
+activeSymbol (CN cm) = MA.elems cm
+
 parse :: FilePath -> IO (Either Error ([CommodityTags], Aliases, CommodityNames))
 parse filepath = do
   content <- TIO.readFile filepath

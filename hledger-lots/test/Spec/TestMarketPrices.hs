@@ -6,7 +6,7 @@ import Test.Hspec
 import Lib.MarketPrices
 
 import qualified Data.Time.Clock.POSIX as D
-import Data.Aeson (decode)
+import Data.Aeson (decode, eitherDecode)
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
@@ -44,4 +44,9 @@ testDecodeTickerInfo =
           expectedResponse = TickerInfoResponse { tickersInfo = V.fromList [expectedTickerInfo], errorMsg = Nothing }
           decodedResponse = decode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Maybe TickerInfoResponse
       decodedResponse `shouldBe` Just expectedResponse
+    it "decodes a TickerInfo from JSON fail" $ do
+      let jsonStr = "{ , \"regularMarketTime\": 1722576602, \"regularMarketPrice\": 903.0, \"currency\": \"TWD\" }"
+          expectedTickerInfo = Left "Error in $: Failed reading: satisfy. Expecting object key at ',regularMarketTime:1722576602,regularMarketPrice:903.0,currency:TWD}'"
+          decodedTickerInfo = eitherDecode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Either String TickerInfo
+      decodedTickerInfo `shouldBe` expectedTickerInfo
 
