@@ -65,12 +65,16 @@ main = do
           case head ts of
             Left e -> print e
             Right e -> do
-              hPutStrLn stderr "-------"
-              hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
-              hPutStrLn stderr "Please check the quotes in .journal are correct."
-              hPutStrLn stderr ""
-              mapM_ (hPutStrLn stderr. toStr) $ LCT.activeSymbol $ fst e
-                where toStr (LCT.S yt) = T.unpack yt
+              let ss = LCT.activeSymbol $ fst e
+              if null ss then
+                return ()
+              else do
+                hPutStrLn stderr "-------" 
+                hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
+                hPutStrLn stderr "Please check the quotes in .journal are correct."
+                hPutStrLn stderr ""
+                mapM_ (hPutStrLn stderr. toStr) ss
+                  where toStr (LCT.S yt) = T.unpack yt
 
 
 
