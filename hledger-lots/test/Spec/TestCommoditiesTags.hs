@@ -17,6 +17,13 @@ testCommoditiesTags =
         Left err -> expectationFailure (show err)
         Right result -> result `shouldBe` expected
 
+    it "parses a valid commodity line with active" $ do
+      let input = "commodity sunplus_inn 1000.0000 ; yahoo_ticker:TSMC, status:active, alias:2330 \n"
+      let expected = [CommodityTags (S "sunplus_inn") (YT "TSMC") True (Just (A "2330"))]
+      case P.parse commoditiesTagsParser "" (T.pack input) of
+        Left err -> expectationFailure (show err)
+        Right result -> result `shouldBe` expected
+
     it "parses a commodity line with status inactive" $ do
       let input = "commodity dell 1000.0000 ; yahoo_ticker:DELL, status:inactive\n"
       let expected = [CommodityTags (S "dell") (YT "DELL") False Nothing]

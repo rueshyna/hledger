@@ -26,7 +26,7 @@ testMarketPrices =
             }
       let as = L.Aliases $ MA.empty
       let cn = L.CN $ MA.empty
-      strPriceDirtive as cn ticker `shouldBe` "P 2024-08-02 Gold oz1234.56"
+      strPriceDirtive as cn ticker `shouldBe` (cn, "P 2024-08-02 Gold oz1234.56")
 
 testDecodeTickerInfo :: Spec
 testDecodeTickerInfo =

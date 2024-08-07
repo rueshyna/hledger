@@ -52,7 +52,9 @@ commodityTagsParser :: PT.Parser CommodityTags
 commodityTagsParser = do
   _ <- string "commodity"
   spaces
-  sym <- T.pack <$> (between (string "\"") (string "\"") (many1 (alphaNum <|> space)) <|> many1 (letter <|> char '$'))
+  sym <- T.pack <$>
+    (between (string "\"") (string "\"") (many1 (alphaNum <|> space)) <|>
+    many1 (letter <|> char '$' <|> char '_'))
   _ <- manyTill anyChar $ string ";"
   fields <-  parseTagValue `sepEndBy` (char ',')
   let yt = lookup "yahoo_ticker" fields
