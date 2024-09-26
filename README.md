@@ -1,191 +1,68 @@
-# hledger
-## Robust, intuitive plain text accounting
-[![license](https://img.shields.io/badge/license-GPLv3+-brightgreen.svg)](https://www.gnu.org/licenses/gpl.html)
-[![on hackage](https://img.shields.io/hackage/v/hledger.svg?label=hackage&colorB=green)](https://hackage.haskell.org/package/hledger)
-[![](https://repology.org/badge/version-for-repo/stackage_nighly/hledger.svg)](https://repology.org/metapackage/hledger)
-[![](https://repology.org/badge/version-for-repo/stackage_lts/hledger.svg)](https://repology.org/metapackage/hledger)
-[![github issues](https://img.shields.io/github/issues/simonmichael/hledger.svg)](http://bugs.hledger.org)
+# Hledger
+Additional plugins based on **hledger** 1.32.1 for fetching market prices and displaying lots from commodities.
 
-Welcome! This a brief intro to hledger. For a more detailed version, see the home page: **<https://hledger.org>**
-
-hledger is lightweight, cross platform, multi-currency, double-entry accounting software.
-It lets you track money, investments, cryptocurrencies, invoices, time, inventory and more, 
-in a safe, future-proof plain text data format with full version control and privacy. 
-
-hledger aims to help both computer experts and regular folks
-gain clarity in their finances and time management.
-Though the UIs are basic, hledger can model any accounting situation and provide precise, clear reports.
-It is reliable, quick, and backed by the highly supportive [Plain Text Accounting](https://plaintextaccounting.org) ecosystem. 
-Using it is an excellent way to learn double entry accounting.
-
-Compared to [other PTA apps](https://plaintextaccounting.org/#software), 
-hledger is actively maintained, with regular releases,
-and a strong focus on being easy to use and practical for everyday accounting.
-
-More features:
-- Installs easily on unix, mac or windows
-- Complete, built-in documentation in multiple formats, beginner videos, tutorials etc.
-- Multiple UIs: command-line, terminal, web, mobile, editors/IDEs
-- Good at importing and exporting CSV; also outputs text/HTML/JSON/SQL
-- A robust, general, well-specified multi-currency accounting engine
-- Fast, analysing 25k transactions per second on a macbook air m1
-- Accurate to 255 decimal places
-- Supports your preferred account names, currencies, number formats
-- Inspired by and partly compatible with Ledger CLI; interconvertible with Beancount
-- Scriptable by CLI, HTTP or API, with plenty of examples
-- Clean Haskell codebase, continually improved since 2007, with $100 regression bounties
-- Free software licensed under GPLv3+.
-
-## Examples
-
-I use hledger to:
-- track income and spending, sometimes with budgets
-- see time reports by day/week/month/project
-- track reimbursables, invoices and payments
-- predict cashflow and account balances
-- get accurate numbers for tax filing
-- research past events
-
-Here's an example of the journal file format:
-```journal
-2022-01-01 opening balances as of this date
-    assets:bank:checking                $1000
-    assets:bank:savings                 $2000
-    assets:cash                          $100
-    liabilities:creditcard               $-50
-    equity:opening/closing balances
-
-2022-01-15 market
-    expenses:food             $50
-    assets:cash              $-50
-
-2022-02-01 GOODWORKS CORP
-    assets:bank:checking           $1000
-    income:salary                 $-1000
+## How to Install
+```bash
+stack build hledger-lots
+stack install hledger-lots
 ```
-and some simple reports:
-```cli
-$ hledger bs
-Balance Sheet 2022-02-15
+Both `hledger-lots` and `hledger-tickers` should be installed.
 
-                        || 2022-02-15 
-========================++============
- Assets                 ||            
-------------------------++------------
- assets:bank:checking   ||      $2000 
- assets:bank:savings    ||      $2000 
- assets:cash            ||        $50 
-------------------------++------------
-                        ||      $4050 
-========================++============
- Liabilities            ||            
-------------------------++------------
- liabilities:creditcard ||        $50 
-------------------------++------------
-                        ||        $50 
-========================++============
- Net:                   ||      $4000 
-```
-```cli
-$ hledger is --monthly                                            
-Income Statement 2022-01-01..2022-02-28                                               
-                                                                                      
-               ||  Jan    Feb                                                         
-===============++=============                                                        
- Revenues      ||                                                                     
----------------++-------------                                                        
- income:salary ||    0  $1000                                                         
----------------++-------------                                                        
-               ||    0  $1000                                                         
-===============++=============                                                        
- Expenses      ||                                                                     
----------------++-------------                                                        
- expenses:food ||  $50      0                                                         
----------------++-------------                                                        
-               ||  $50      0                                                         
-===============++=============                                                        
- Net:          || $-50  $1000                                                         
+## hledger-lots
+The command is similar to `reg`, but it displays additional information by adding the average cost per unit, represented with `@`.
+
+```bash
+> cat ./stock.journal
+; example data
+
+2021-07-16 * buy
+    assets:tsmc         tsmc 100 @@ $50000
+    assets:brokerage               $-50000
+
+2022-07-26 * buy
+    assets:tsmc         tsmc 50 @@ $27500
+    assets:brokerage               $-27500
+
+2024-06-24 * sell
+    assets:tsmc         tsmc -150 @@ $90000
+    assets:brokerage                $90000
 ```
 
-More examples and screenshots: <https://hledger.org/#how-to-get-started>
+```bash
+> hledger lots assets:tsmc -f stock.journal
+2021-07-16 buy           assets:tsmc               tsmc 100 @ $500    tsmc 100 @@ $50000 @ $500
+2022-07-26 buy           assets:tsmc                tsmc 50 @ $550    tsmc 150 @@ $77500 @ $517
+2024-06-24 sell          assets:tsmc              tsmc -150 @ $600            tsmc 0 @@ $-12500
+```
 
-## Funding
+## hledger-tickers
+Supports fetching current market prices from the Yahoo Finance API, and also supports multiple currencies. Additional tags following the **hledger** format are required.
 
-hledger is brought to you by
-[Simon Michael](http://joyful.com),
-[140+ contributors](CREDITS.md),
-and the generous financial sponsors below.
+Tags:
+- `yahoo-ticker` is optional. If it isn't provided and `status` is active, an error will occur.
+- `status` defaults to inactive. `hledger-tickers` will only fetch market prices when `status` is active.
+- `name` is optional. This is a human-readable name.
+- `alias` is optional. If the currency of the commodity differs from the Yahoo Finance API, `alias` is required.
 
-After enjoying some personal or organisational success with hledger,
-you might want to become one of them, to help support this work.
-It's easy! Please see <https://hledger.org/sponsor.html> for details.
+```bash
+> cat ./commodity.journal
+; example data
 
-<!-- keep synced with sponsor.md: -->
+commodity $1000.                   ; yahoo_ticker:, status:inactive, alias:TWD
+commodity USD1000.00               ; yahoo_ticker:TWD=X, status:active
+commodity EUR1000.00               ; yahoo_ticker:EURUSD=X, status:active
+commodity twfiv 1000.              ; yahoo_ticker:0050.TW, status:active, name:台灣50
+commodity tsmc 1000.               ; yahoo_ticker:2330.TW, status:active, name:台積電
+commodity aapl 1000.0000           ; yahoo_ticker:AAPL, status:active
+commodity vti 1000.0000            ; yahoo_ticker:VTI, status:active
+```
 
-### Organisational sponsors
-
-<a href="https://opencollective.com/hledger/organization/0/website"><img src="https://opencollective.com/hledger/organization/0/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/1/website"><img src="https://opencollective.com/hledger/organization/1/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/2/website"><img src="https://opencollective.com/hledger/organization/2/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/3/website"><img src="https://opencollective.com/hledger/organization/3/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/4/website"><img src="https://opencollective.com/hledger/organization/4/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/5/website"><img src="https://opencollective.com/hledger/organization/5/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/6/website"><img src="https://opencollective.com/hledger/organization/6/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/7/website"><img src="https://opencollective.com/hledger/organization/7/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/8/website"><img src="https://opencollective.com/hledger/organization/8/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/9/website"><img src="https://opencollective.com/hledger/organization/9/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/10/website"><img src="https://opencollective.com/hledger/organization/10/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/11/website"><img src="https://opencollective.com/hledger/organization/11/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/12/website"><img src="https://opencollective.com/hledger/organization/12/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/13/website"><img src="https://opencollective.com/hledger/organization/13/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/14/website"><img src="https://opencollective.com/hledger/organization/14/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/15/website"><img src="https://opencollective.com/hledger/organization/15/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/16/website"><img src="https://opencollective.com/hledger/organization/16/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/17/website"><img src="https://opencollective.com/hledger/organization/17/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/18/website"><img src="https://opencollective.com/hledger/organization/18/avatar.svg?avatarHeight=200"></a>
-<a href="https://opencollective.com/hledger/organization/19/website"><img src="https://opencollective.com/hledger/organization/19/avatar.svg?avatarHeight=200"></a>
-
-### Individual sponsors
-
-<a href="https://opencollective.com/hledger/individual/0/website"><img src="https://opencollective.com/hledger/individual/0/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/1/website"><img src="https://opencollective.com/hledger/individual/1/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/2/website"><img src="https://opencollective.com/hledger/individual/2/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/3/website"><img src="https://opencollective.com/hledger/individual/3/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/4/website"><img src="https://opencollective.com/hledger/individual/4/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/5/website"><img src="https://opencollective.com/hledger/individual/5/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/6/website"><img src="https://opencollective.com/hledger/individual/6/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/7/website"><img src="https://opencollective.com/hledger/individual/7/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/8/website"><img src="https://opencollective.com/hledger/individual/8/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/9/website"><img src="https://opencollective.com/hledger/individual/9/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/10/website"><img src="https://opencollective.com/hledger/individual/10/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/11/website"><img src="https://opencollective.com/hledger/individual/11/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/12/website"><img src="https://opencollective.com/hledger/individual/12/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/13/website"><img src="https://opencollective.com/hledger/individual/13/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/14/website"><img src="https://opencollective.com/hledger/individual/14/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/15/website"><img src="https://opencollective.com/hledger/individual/15/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/16/website"><img src="https://opencollective.com/hledger/individual/16/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/17/website"><img src="https://opencollective.com/hledger/individual/17/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/18/website"><img src="https://opencollective.com/hledger/individual/18/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/19/website"><img src="https://opencollective.com/hledger/individual/19/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/20/website"><img src="https://opencollective.com/hledger/individual/20/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/21/website"><img src="https://opencollective.com/hledger/individual/21/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/22/website"><img src="https://opencollective.com/hledger/individual/22/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/23/website"><img src="https://opencollective.com/hledger/individual/23/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/24/website"><img src="https://opencollective.com/hledger/individual/24/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/25/website"><img src="https://opencollective.com/hledger/individual/25/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/26/website"><img src="https://opencollective.com/hledger/individual/26/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/27/website"><img src="https://opencollective.com/hledger/individual/27/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/28/website"><img src="https://opencollective.com/hledger/individual/28/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/29/website"><img src="https://opencollective.com/hledger/individual/29/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/30/website"><img src="https://opencollective.com/hledger/individual/30/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/31/website"><img src="https://opencollective.com/hledger/individual/31/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/32/website"><img src="https://opencollective.com/hledger/individual/32/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/33/website"><img src="https://opencollective.com/hledger/individual/33/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/34/website"><img src="https://opencollective.com/hledger/individual/34/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/35/website"><img src="https://opencollective.com/hledger/individual/35/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/36/website"><img src="https://opencollective.com/hledger/individual/36/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/37/website"><img src="https://opencollective.com/hledger/individual/37/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/38/website"><img src="https://opencollective.com/hledger/individual/38/avatar.svg?avatarHeight=100"></a>
-<a href="https://opencollective.com/hledger/individual/39/website"><img src="https://opencollective.com/hledger/individual/39/avatar.svg?avatarHeight=100"></a>
-
-If your logo/avatar needs to be added, [let me know](mailto:webmaster@hledger.org)!
+```bash
+> hledger tickers -f ./commodity.journal
+P 2024-09-19 USD $31.981
+P 2024-09-19 EUR USD1.1104941
+P 2024-09-19 twfiv $179.7
+P 2024-09-19 tsmc $949.0
+P 2024-09-18 aapl USD220.69
+P 2024-09-18 vti USD277.35
+```
