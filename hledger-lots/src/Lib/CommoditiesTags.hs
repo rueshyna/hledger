@@ -42,9 +42,9 @@ symbolToAlias (S s) = A s
 parseTagValue :: PT.Parser (T.Text, T.Text)
 parseTagValue = do
   skipMany space
-  tag <- T.pack <$> many1 (letter <|> char '_')
+  tag <- T.pack <$> many1 (letter <|> char '_' )
   _ <- char ':'
-  value <- T.pack <$>  (many (alphaNum <|> char '.' <|> char '='))
+  value <- T.pack <$>  (many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-'))
   skipMany space
   return (tag, value)
 
