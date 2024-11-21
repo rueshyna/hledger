@@ -34,7 +34,7 @@ matchedPostingsBeforeAndDuring' rspec@ReportSpec{_rsReportOpts=ropts,_rsQuery=q}
       -- want to keep prices around, so we can toggle between cost and no cost quickly. We can use
       -- the show_costs_ flag to be efficient when we can, and detailed when we have to.
       -- modify
-      . (if show_costs_ ropts then id else journalMapPostingAmounts mixedAmountToUnit)
+      . (if show_costs_ ropts then id else \j' -> journalMapPostingAmounts (mixedAmountToUnit $ jcommodities j') j')
       $ journalValueAndFilterPostings rspec{_rsQuery=beforeandduringq} j
 
     -- filter postings by the query, with no start date or depth limit
@@ -50,8 +50,8 @@ matchedPostingsBeforeAndDuring' rspec@ReportSpec{_rsReportOpts=ropts,_rsQuery=q}
 
 
 -- | Count cost
-mixedAmountToUnit :: MixedAmount -> MixedAmount
-mixedAmountToUnit (Mixed ma) =
+mixedAmountToUnit :: M.Map CommoditySymbol Commodity -> MixedAmount -> MixedAmount
+mixedAmountToUnit cs (Mixed ma) =
   Mixed $
    M.foldlWithKey' toUnit noPrices withPrices
   where
@@ -59,13 +59,21 @@ mixedAmountToUnit (Mixed ma) =
     toUnit m k@(MixedAmountKeyNoPrice _) a = M.insert k a m
     toUnit m k@(MixedAmountKeyTotalPrice c1 c2) a
       | isNothing (aprice a) = M.insert k a m
-      | otherwise = M.insert (MixedAmountKeyTotalPrice c1 c2) (a {aprice = unitPrice (aprice a)}) m
+      | otherwise = M.insert (MixedAmountKeyTotalPrice c1 c2) (a {aprice = unitPrice (aprice a), astyle = fromMaybe (astyle a)  (style $ acommodity a)}) m
       where unitPrice o@(Just (UnitPrice _)) = o
             unitPrice (Just (TotalPrice tp)) =
-              Just $ TotalPrice $ tp { aprice =
-                    Just $ UnitPrice $ tp { aquantity = aquantity tp / aquantity a, aprice = Nothing}
+              Just $ TotalPrice $ tp
+                { aprice =
+                    Just $ UnitPrice $ tp
+                     { aquantity = aquantity tp / aquantity a
+                     , aprice = Nothing
+                     , astyle = fromMaybe (astyle tp) (style $ acommodity tp)
+                     }
+                , astyle = fromMaybe (astyle tp) (style $ acommodity tp)
                 }
     toUnit m k@(MixedAmountKeyUnitPrice {}) a = M.insert k a m
+    style :: CommoditySymbol -> Maybe AmountStyle
+    style c = cformat =<< M.lookup c cs
 
 
 -- | Select postings from the journal and add running balance and other
