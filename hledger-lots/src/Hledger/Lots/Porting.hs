@@ -3,7 +3,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Lib.Porting where
+module Hledger.Lots.Porting where
 
 import Hledger.Cli.Script hiding (Group)
 import System.Console.ANSI (Color(..),ColorIntensity(..))

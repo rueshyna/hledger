@@ -1,0 +1,2 @@
+
+module Hledger.Lots where

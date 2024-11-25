@@ -4,10 +4,10 @@
 module Main(main) where
 
 import Hledger.Cli.Script hiding (Group)
-import qualified Lib.CommoditiesTags as LCT
-import Lib.MarketPrices as LM
-import Lib.Config as LC
-import Lib.Error
+import qualified Hledger.Ticker.CommoditiesTags as LCT
+import Hledger.Ticker.MarketPrices as LM
+import Hledger.Ticker.Config as LC
+import Hledger.Ticker.Error
 
 
 import qualified Data.Text as T

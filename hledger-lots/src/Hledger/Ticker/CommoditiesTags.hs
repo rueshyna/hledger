@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Lib.CommoditiesTags where
+module Hledger.Ticker.CommoditiesTags where
 
 import qualified Data.Maybe as M
 import qualified Data.Map as MA
@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import qualified Data.List as L
 import Text.Parsec as P
 import qualified Text.Parsec.Text as PT
-import Lib.Error
+import Hledger.Ticker.Error
 import GHC.Generics (Generic)
 
 newtype Alias = A T.Text

@@ -3,13 +3,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Lib.Config where
+module Hledger.Ticker.Config where
 
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import           GHC.Generics (Generic)
 
-import           Lib.Error
+import           Hledger.Ticker.Error
 
 newtype ApiKey = AK T.Text
   deriving (Show)

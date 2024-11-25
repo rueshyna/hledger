@@ -1,4 +1,4 @@
-module Lib.Error where
+module Hledger.Ticker.Error where
 
 import qualified Data.Text as T
 import qualified Text.Parsec as P

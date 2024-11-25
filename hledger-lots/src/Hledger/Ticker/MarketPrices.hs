@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module Lib.MarketPrices where
+module Hledger.Ticker.MarketPrices where
 
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS
@@ -19,9 +19,9 @@ import           Data.Time as TI
 import qualified Data.Time.Clock.POSIX as D
 import           Data.Scientific as S
 
-import qualified Lib.CommoditiesTags as L
-import qualified Lib.Config as C
-import Lib.Error
+import qualified Hledger.Ticker.CommoditiesTags as L
+import qualified Hledger.Ticker.Config as C
+import Hledger.Ticker.Error
 
 newtype Timestamp = Timestamp TI.UTCTime deriving (Generic, Show, Eq)
 

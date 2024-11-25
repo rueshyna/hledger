@@ -25,12 +25,14 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
-      Lib.CommoditiesTags
-      Lib.Config
-      Lib.Error
-      Lib.MarketPrices
-      Lib.Porting
+      Hledger.Lots
+      Hledger.Lots.Porting
+      Hledger.Lots.Report
+      Hledger.Ticker
+      Hledger.Ticker.CommoditiesTags
+      Hledger.Ticker.Config
+      Hledger.Ticker.Error
+      Hledger.Ticker.MarketPrices
   other-modules:
       Paths_hledger_lots
   autogen-modules:
