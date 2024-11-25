@@ -15,6 +15,7 @@ import qualified Data.Text.Lazy.Builder as TB
 import qualified Data.Map.Strict as M
 import Text.Tabular.AsciiWide hiding (render)
 import Lens.Micro ((^.))
+import Hledger.Read.CsvUtils (CSV, CsvRecord, printCSV)
 
 -- | Find postings matching a given query, within a given date span,
 -- and also any similarly-matched postings before that date span.
@@ -335,3 +336,26 @@ showUnitPriceSymbol amt = case aprice amt of
     Nothing              -> mempty
     Just (UnitPrice  pa) -> WideBuilder (TB.fromString " @ ")  3 <> showAmountB' noColour{displayZeroCommodity=True} pa { aprice = Nothing }
     Just (TotalPrice pa) -> showUnitPriceSymbol pa
+
+postingsReportAsCsv' :: PostingsReport -> CSV
+postingsReportAsCsv' is =
+  ["txnidx","date","code","description","account","amount","cost","total_cost"]
+  :
+  map postingsReportItemAsCsvRecord' is
+
+postingsReportItemAsCsvRecord' :: PostingsReportItem -> CsvRecord
+postingsReportItemAsCsvRecord' (_, _, _, p, b) = [idx,date,code,desc,acct,amt,bal]
+  where
+    idx  = T.pack . show . maybe 0 tindex $ ptransaction p
+    date = showDate $ postingDate p -- XXX csv should show date2 with --date2
+    code = maybe "" tcode $ ptransaction p
+    desc = maybe "" tdescription $ ptransaction p
+    acct = bracket $ paccount p
+      where
+        bracket = case ptype p of
+                             BalancedVirtualPosting -> wrap "[" "]"
+                             VirtualPosting -> wrap "(" ")"
+                             _ -> id
+    -- Since postingsReport strips prices from all Amounts when not used, we can display prices.
+    amt = wbToText . showMixedAmountB (csvDisplay { displayPrice = True }) $ pamount p
+    bal = wbToText $ showMixedAmountB (csvDisplay { displayPrice = True }) b

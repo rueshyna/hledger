@@ -3,6 +3,7 @@
 module Main(main) where
 
 import Hledger.Cli.Script hiding (Group)
+import Hledger.Read.CsvUtils (printCSV)
 import Lib.Porting
 
 cmdmode :: Mode RawOpts
@@ -15,7 +16,8 @@ cmdmode = hledgerCommandMode (unlines
   ,""
   ,"_FLAGS"
   ])
-  [] [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
+  [ outputFormatFlag ["txt","csv","tsv","json" ]
+  ] [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
 
 
 main :: IO ()
@@ -24,8 +26,9 @@ main = do
   withJournalDo opts $ \j -> do
     let
       styles = journalCommodityStylesWith HardRounding j
-      rpt =  postingsReport' rspec j
+      rpt = postingsReport' rspec j
       render | fmt=="txt"  = postingsReportAsText' opts
+             | fmt=="csv"  = printCSV . postingsReportAsCsv'
              | fmt=="json" = toJsonText
              | otherwise   = error' $ unsupportedOutputFormatError fmt  -- PARTIAL:
         where fmt = outputFormatFromOpts opts

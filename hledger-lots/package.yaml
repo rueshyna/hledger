@@ -72,6 +72,7 @@ executables:
     - hledger-lots
     - text >=1.2.4.1
     - hledger >=1.32.1 && <1.33
+    - hledger-lib >=1.32.1 && <1.33
   hledger-tickers:
     main:                Tickers.hs
     other-modules:       []
