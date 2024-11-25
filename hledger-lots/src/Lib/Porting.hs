@@ -15,7 +15,7 @@ import qualified Data.Text.Lazy.Builder as TB
 import qualified Data.Map.Strict as M
 import Text.Tabular.AsciiWide hiding (render)
 import Lens.Micro ((^.))
-import Hledger.Read.CsvUtils (CSV, CsvRecord, printCSV)
+import Hledger.Read.CsvUtils (CSV, CsvRecord)
 
 -- | Find postings matching a given query, within a given date span,
 -- and also any similarly-matched postings before that date span.

@@ -5,6 +5,7 @@ module Main(main) where
 import Hledger.Cli.Script hiding (Group)
 import Hledger.Read.CsvUtils (printCSV)
 import Lib.Porting
+import qualified Data.Text.Lazy as TL
 
 cmdmode :: Mode RawOpts
 cmdmode = hledgerCommandMode (unlines
@@ -20,8 +21,8 @@ cmdmode = hledgerCommandMode (unlines
   ] [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
 
 
-main :: IO ()
-main = do
+output :: IO (CliOpts, TL.Text)
+output = do
   opts@CliOpts{reportspec_=rspec} <- getHledgerCliOpts cmdmode
   withJournalDo opts $ \j -> do
     let
@@ -32,4 +33,9 @@ main = do
              | fmt=="json" = toJsonText
              | otherwise   = error' $ unsupportedOutputFormatError fmt  -- PARTIAL:
         where fmt = outputFormatFromOpts opts
-    writeOutputLazyText opts $ render $ styleAmounts styles rpt
+    return $ (opts, render $ styleAmounts styles rpt)
+
+main :: IO ()
+main = do
+  (opts, content) <- output
+  writeOutputLazyText opts content
