@@ -9,26 +9,40 @@ import qualified Data.Map as MA
 import qualified Data.Text.IO as TIO
 import qualified Data.Text as T
 import qualified Data.List as L
+import qualified Data.Aeson as A
+import Data.Char (isAlpha)
+
 import Text.Parsec as P
 import qualified Text.Parsec.Text as PT
+import qualified Text.Parsec.Char as PC
 import Hledger.Ticker.Error
 import GHC.Generics (Generic)
 
+newtype Name = N T.Text
+  deriving (Generic, Show, Eq, Ord)
+
 newtype Alias = A T.Text
-  deriving (Show, Eq, Ord)
+  deriving (Generic, Show, Eq, Ord)
 
 newtype Symbol = S T.Text
-  deriving (Show, Eq)
+  deriving (Generic, Show, Eq)
 
 newtype YTicker = YT T.Text
-  deriving (Show, Eq, Ord)
+  deriving (Generic,Show, Eq, Ord)
 
 data CommodityTags = CommodityTags
   { ctsymbol :: Symbol
   , ctyahooTicker :: YTicker
   , ctstatus :: Bool
   , ctalias :: Maybe Alias
-  } deriving (Show, Eq)
+  , ctname :: Maybe Name
+  } deriving (Generic, Show, Eq)
+
+instance A.ToJSON YTicker
+instance A.ToJSON Name
+instance A.ToJSON Alias
+instance A.ToJSON Symbol
+instance A.ToJSON CommodityTags
 
 newtype CommodityNames = CN (MA.Map YTicker Symbol)
    deriving (Show, Eq, Generic)
@@ -39,12 +53,15 @@ newtype Aliases = Aliases (MA.Map Alias Symbol)
 symbolToAlias :: Symbol -> Alias
 symbolToAlias (S s) = A s
 
+chineseChar :: PT.Parser Char
+chineseChar = PC.satisfy (\c -> isAlpha c && c >= '\x4E00' && c <= '\x9FFF')
+
 parseTagValue :: PT.Parser (T.Text, T.Text)
 parseTagValue = do
   skipMany space
   tag <- T.pack <$> many1 (letter <|> char '_' )
   _ <- char ':'
-  value <- T.pack <$>  (many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-'))
+  value <- T.pack <$>  (many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-' <|> chineseChar))
   skipMany space
   return (tag, value)
 
@@ -56,13 +73,14 @@ commodityTagsParser = do
     (between (string "\"") (string "\"") (many1 (alphaNum <|> space)) <|>
     many1 (letter <|> char '$' <|> char '_'))
   _ <- manyTill anyChar $ string ";"
-  fields <-  parseTagValue `sepEndBy` (char ',')
+  fields <-   parseTagValue `sepEndBy` (char ',')
   let yt = lookup "yahoo_ticker" fields
   let status = lookup "status" fields >>= parseStatusText
   let alias = lookup "alias" fields
+  let name = lookup "name" fields
   case yt of
     Nothing -> fail "Missing required field: yahoo_ticker"
-    Just ytValue -> return $ CommodityTags (S sym) (YT ytValue) (M.fromMaybe True status) (A <$> alias)
+    Just ytValue -> return $ CommodityTags (S sym) (YT ytValue) (M.fromMaybe True status) (A <$> alias) (N <$> name)
   where
     parseStatusText :: T.Text -> Maybe Bool
     parseStatusText txt = case txt of

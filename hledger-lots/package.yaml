@@ -85,12 +85,7 @@ executables:
     - hledger-lots
     - text >=1.2.4.1
     - hledger >=1.32.1 && <1.33
-    - yaml
-    - filepath
-    - time
-    - containers
-    - parsec
-    - vector
+    - bytestring
 
 tests:
   hledger-lots-test:
