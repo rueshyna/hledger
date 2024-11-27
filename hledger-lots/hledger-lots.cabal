@@ -33,6 +33,7 @@ library
       Hledger.Ticker.Config
       Hledger.Ticker.Error
       Hledger.Ticker.MarketPrices
+      Hledger.Ticker.Report
   other-modules:
       Paths_hledger_lots
   autogen-modules:

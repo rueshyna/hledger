@@ -9,26 +9,34 @@ import qualified Data.Map as MA
 import qualified Data.Text.IO as TIO
 import qualified Data.Text as T
 import qualified Data.List as L
+import qualified Data.Aeson as A
+
 import Text.Parsec as P
 import qualified Text.Parsec.Text as PT
 import Hledger.Ticker.Error
 import GHC.Generics (Generic)
+import Data.Aeson (ToJSON)
 
 newtype Alias = A T.Text
-  deriving (Show, Eq, Ord)
+  deriving (Generic, Show, Eq, Ord)
 
 newtype Symbol = S T.Text
-  deriving (Show, Eq)
+  deriving (Generic, Show, Eq)
 
 newtype YTicker = YT T.Text
-  deriving (Show, Eq, Ord)
+  deriving (Generic,Show, Eq, Ord)
 
 data CommodityTags = CommodityTags
   { ctsymbol :: Symbol
   , ctyahooTicker :: YTicker
   , ctstatus :: Bool
   , ctalias :: Maybe Alias
-  } deriving (Show, Eq)
+  } deriving (Generic, Show, Eq)
+
+instance A.ToJSON YTicker
+instance A.ToJSON Alias
+instance A.ToJSON Symbol
+instance A.ToJSON CommodityTags
 
 newtype CommodityNames = CN (MA.Map YTicker Symbol)
    deriving (Show, Eq, Generic)
