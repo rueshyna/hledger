@@ -19,7 +19,7 @@ cmdmode = hledgerCommandMode (unlines
   ,""
   ,"_FLAGS"
   ])
-  [ outputFormatFlag ["txt","csv","tsv","json" ]
+  [ outputFormatFlag ["txt","csv","json" ]
   ] [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
 
 run :: IO (CliOpts, TL.Text)

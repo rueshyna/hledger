@@ -339,7 +339,7 @@ showUnitPriceSymbol amt = case aprice amt of
 
 postingsReportAsCsv' :: PostingsReport -> CSV
 postingsReportAsCsv' is =
-  ["txnidx","date","code","description","account","amount","cost","total_cost"]
+  ["txnidx","date","code","description","account","amount","balance"]
   :
   map postingsReportItemAsCsvRecord' is
 
