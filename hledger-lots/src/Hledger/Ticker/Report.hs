@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy.Char8 as BLC
 
 commodityInfoFlag :: Flag RawOpts
 commodityInfoFlag = flagNone
-  ["display-commodity-info","d"] (setboolopt "display-commodity-info") "Display commodity info"
+  ["display-commodity-info","d"] (setboolopt "display-commodity-info") "Display commodity info. (Only Support JSON)"
 
 isDisplayCommodityInfo :: CliOpts -> Bool
 isDisplayCommodityInfo = boolopt "display-commodity-info" . rawopts_
@@ -34,8 +34,8 @@ cmdmode = hledgerCommandMode (unlines
   [ commodityInfoFlag ]
   [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
 
-run :: CliOpts -> IO ()
-run opts = do
+fetchMarketPrice :: CliOpts -> IO ()
+fetchMarketPrice opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j

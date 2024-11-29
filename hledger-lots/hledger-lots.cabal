@@ -86,15 +86,10 @@ executable hledger-tickers
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-missing-export-lists -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-    , containers
-    , filepath
+    , bytestring
     , hledger >=1.32.1 && <1.33
     , hledger-lots
-    , parsec
     , text >=1.2.4.1
-    , time
-    , vector
-    , yaml
   default-language: Haskell2010
 
 test-suite hledger-lots-test
