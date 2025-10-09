@@ -70,7 +70,7 @@ commodityTagsParser = do
   _ <- string "commodity"
   spaces
   sym <- T.pack <$>
-    (between (string "\"") (string "\"") (many1 (alphaNum <|> space)) <|>
+    (between (string "\"") (string "\"") (many1 (alphaNum <|> space <|> char '-' <|> char '.')) <|>
     many1 (letter <|> char '$' <|> char '_'))
   _ <- manyTill anyChar $ string ";"
   fields <-   parseTagValue `sepEndBy` (char ',')
