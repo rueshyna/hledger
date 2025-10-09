@@ -44,6 +44,12 @@ instance A.ToJSON Alias
 instance A.ToJSON Symbol
 instance A.ToJSON CommodityTags
 
+instance A.FromJSON YTicker
+instance A.FromJSON Name
+instance A.FromJSON Alias
+instance A.FromJSON Symbol
+instance A.FromJSON CommodityTags
+
 newtype CommodityNames = CN (MA.Map YTicker Symbol)
    deriving (Show, Eq, Generic)
 
