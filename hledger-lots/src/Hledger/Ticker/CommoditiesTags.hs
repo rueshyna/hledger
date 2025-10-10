@@ -25,10 +25,10 @@ newtype Alias = A T.Text
   deriving (Generic, Show, Eq, Ord)
 
 newtype Symbol = S T.Text
-  deriving (Generic, Show, Eq)
+  deriving (Generic, Show, Eq, Ord)
 
 newtype YTicker = YT T.Text
-  deriving (Generic,Show, Eq, Ord)
+  deriving (Generic, Show, Eq, Ord)
 
 data CommodityTags = CommodityTags
   { ctsymbol :: Symbol
