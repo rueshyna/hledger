@@ -18,16 +18,16 @@ import qualified Text.Parsec.Char as PC
 import Hledger.Ticker.Error
 import GHC.Generics (Generic)
 
-newtype Name = N T.Text
+newtype Name = N { name :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
-newtype Alias = A T.Text
+newtype Alias = A { alias :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
-newtype Symbol = S T.Text
+newtype Symbol = S { symbol :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
-newtype YTicker = YT T.Text
+newtype YTicker = YT { yticker :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
 data CommodityTags = CommodityTags

@@ -53,14 +53,17 @@ instance J.FromJSON TickerInfo where
 formatUTCTime :: Timestamp -> String
 formatUTCTime (Timestamp t) = formatTime defaultTimeLocale "%Y-%m-%d" t
 
-strPriceDirtive :: L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, T.Text)
-strPriceDirtive (L.Aliases as) (L.CN cn) t =
+strPriceDirtive :: Bool -> L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, T.Text)
+strPriceDirtive isCsv (L.Aliases as) (L.CN cn) t =
   ( L.CN $ MA.delete yt cn
-  , "P " <>
-    T.pack (formatUTCTime (tkmarkettime t)) <> " " <> 
-    cname <> " " <>
-    unit <> T.pack (show $ tkprice t))
-      where yt =  tksymbol t
+  , prefix <>
+    T.pack (formatUTCTime (tkmarkettime t)) <> delim <>
+    cname <> delim <>
+    unit <> splitUnit <> T.pack (show $ tkprice t))
+      where prefix = if isCsv then "" else "P "
+            delim = if isCsv then "," else " "
+            splitUnit = if isCsv then "," else ""
+            yt =  tksymbol t
             toSymbol (L.YT y) = (L.S y)
             (L.S cname) = MA.findWithDefault (toSymbol yt) yt cn
             (L.S unit) = MA.findWithDefault (L.S $ tkunit t) (L.A $ tkunit t) as

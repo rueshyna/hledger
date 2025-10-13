@@ -31,14 +31,22 @@ cmdmode = hledgerCommandMode (unlines
   ,""
   ,"_FLAGS"
   ])
-  [ commodityInfoFlag ]
-  [generalflagsgroup1] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
+  [ commodityInfoFlag, outputFormatFlag ["txt","csv"] ]
+  [ generalflagsgroup1 ] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
+
+-- only support Csv
+marketPriceOutputFormatCsv :: Maybe String -> Bool
+marketPriceOutputFormatCsv Nothing = False
+marketPriceOutputFormatCsv (Just s)
+  | map toLower s == "csv" = True
+  | otherwise = False
 
 fetchMarketPrice :: CliOpts -> IO ()
 fetchMarketPrice opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j
+          isCsvFormat = marketPriceOutputFormatCsv $ output_format_ opts
       info <- LCT.parse filepath
       let tAliases :: Either Error LCT.Aliases
           tAliases = (\(_,x,_) -> x) <$> info
@@ -59,7 +67,7 @@ fetchMarketPrice opts = do
           price = join priceM
 
       let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, T.Text))
-          pdirectiveWithAlias = strPriceDirtive <$> tAliases
+          pdirectiveWithAlias = strPriceDirtive isCsvFormat <$> tAliases
 
       let aux :: [Either Error (LCT.CommodityNames, T.Text)] -> TickerInfo -> [Either Error (LCT.CommodityNames, T.Text)]
           aux [] a = (pdirectiveWithAlias <*> cNameInfo <*> pure a):[(fmap (,"") cNameInfo)]
