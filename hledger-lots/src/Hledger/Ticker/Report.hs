@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
 
 module Hledger.Ticker.Report where
 
@@ -11,7 +10,6 @@ import Hledger.Ticker.Error
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BLC
 import Data.Foldable (foldlM)
 
@@ -42,12 +40,11 @@ marketPriceOutputFormatCsv (Just s)
   | map toLower s == "csv" = True
   | otherwise = False
 
-fetchMarketPrice :: CliOpts -> IO (Either Error [(LCT.CommodityNames, Text)])
+fetchMarketPrice :: CliOpts -> IO (Either Error [(LCT.CommodityNames, YPriceDirective)])
 fetchMarketPrice opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j
-          isCsvFormat = marketPriceOutputFormatCsv $ output_format_ opts
       info <- LCT.parse filepath
       let tAliases :: Either Error LCT.Aliases
           tAliases = (\(_,x,_) -> x) <$> info
@@ -67,32 +64,36 @@ fetchMarketPrice opts = do
       let price :: Either Error [TickerInfo]
           price = join priceM
 
-      let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, T.Text))
-          pdirectiveWithAlias = strPriceDirtive isCsvFormat <$> tAliases
+      let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, YPriceDirective))
+          pdirectiveWithAlias = toPriceDirective <$> tAliases
 
-      let aux :: [(LCT.CommodityNames, T.Text)] -> TickerInfo -> Either Error [(LCT.CommodityNames, T.Text)]
+      let aux :: [(LCT.CommodityNames, YPriceDirective)] -> TickerInfo -> Either Error [(LCT.CommodityNames, YPriceDirective)]
           aux [] a = fmap (:[]) (pdirectiveWithAlias <*> cNameInfo <*> pure a)
           aux acc@(x:_) a = (:) <$> (pdirectiveWithAlias <*> (pure $ fst x) <*> pure a) <*> pure acc
 
       return $ foldlM aux [] =<< price
 
-ppMarketPrice :: Either Error [(LCT.CommodityNames, Text)] -> IO ()
-ppMarketPrice pdirective =
-      case pdirective of
-        Left e -> hPrint stderr e
-        Right [] -> putStrLn ""
-        Right ts@(t:_) -> do
-          mapM_ putStrLn $ (T.unpack . snd) <$> ts
-          let ss = LCT.activeSymbol $ fst t
-          if null ss then
-            return ()
-          else do
-            hPutStrLn stderr "-------"
-            hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
-            hPutStrLn stderr "Please check the quotes in .journal are correct."
-            hPutStrLn stderr ""
-            mapM_ (hPutStrLn stderr. toStr) ss
-              where toStr (LCT.S yt) = T.unpack yt
+ppMarketPrice
+  :: CliOpts
+  -> Either Error [(LCT.CommodityNames, YPriceDirective)]
+  -> IO ()
+ppMarketPrice opts pdirective = do
+  let isCsvFormat = marketPriceOutputFormatCsv $ output_format_ opts
+  case pdirective of
+    Left e -> hPrint stderr e
+    Right [] -> putStrLn ""
+    Right ts@(t:_) -> do
+      mapM_ putStrLn $ (T.unpack . strPriceDirective isCsvFormat . snd) <$> ts
+      let ss = LCT.activeSymbol $ fst t
+      if null ss then
+        return ()
+      else do
+        hPutStrLn stderr "-------"
+        hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
+        hPutStrLn stderr "Please check the quotes in .journal are correct."
+        hPutStrLn stderr ""
+        mapM_ (hPutStrLn stderr. toStr) ss
+          where toStr (LCT.S yt) = T.unpack yt
 
 displayCommodityInfo :: CliOpts -> IO (Either Error [LCT.CommodityTags])
 displayCommodityInfo opts = do

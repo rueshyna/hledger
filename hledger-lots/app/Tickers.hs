@@ -11,5 +11,5 @@ main = do
     if isDisplayCommodityInfo opts
     then
       displayCommodityInfo opts >>= ppDisplayCommodityInfo
-    else fetchMarketPrice opts >>= ppMarketPrice
+    else fetchMarketPrice opts >>= ppMarketPrice opts
 

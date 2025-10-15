@@ -53,20 +53,32 @@ instance J.FromJSON TickerInfo where
 formatUTCTime :: Timestamp -> String
 formatUTCTime (Timestamp t) = formatTime defaultTimeLocale "%Y-%m-%d" t
 
-strPriceDirtive :: Bool -> L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, T.Text)
-strPriceDirtive isCsv (L.Aliases as) (L.CN cn) t =
+data YPriceDirective = PD
+  { ypdname :: T.Text
+  , ypdtime :: Timestamp
+  , ypdunit :: T.Text
+  , ypdprice :: Scientific
+  }
+
+toPriceDirective :: L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, YPriceDirective)
+toPriceDirective (L.Aliases as) (L.CN cn) t =
   ( L.CN $ MA.delete yt cn
-  , prefix <>
-    T.pack (formatUTCTime (tkmarkettime t)) <> delim <>
-    cname <> delim <>
-    unit <> splitUnit <> T.pack (show $ tkprice t))
+  , PD cname (tkmarkettime t) unit (tkprice t))
+      where
+        yt =  tksymbol t
+        toSymbol (L.YT y) = (L.S y)
+        (L.S cname) = MA.findWithDefault (toSymbol yt) yt cn
+        (L.S unit) = MA.findWithDefault (L.S $ tkunit t) (L.A $ tkunit t) as
+
+strPriceDirective :: Bool -> YPriceDirective -> T.Text
+strPriceDirective isCsv pd =
+  prefix <>
+  T.pack (formatUTCTime (ypdtime pd)) <> delim <>
+  (ypdname pd) <> delim <>
+  (ypdunit pd) <> splitUnit <> T.pack (show $ ypdprice pd)
       where prefix = if isCsv then "" else "P "
             delim = if isCsv then "," else " "
             splitUnit = if isCsv then "," else ""
-            yt =  tksymbol t
-            toSymbol (L.YT y) = (L.S y)
-            (L.S cname) = MA.findWithDefault (toSymbol yt) yt cn
-            (L.S unit) = MA.findWithDefault (L.S $ tkunit t) (L.A $ tkunit t) as
 
 data TickerInfoResponse =
   TickerInfoResponse { tickersInfo :: V.Vector TickerInfo, errorMsg :: Maybe T.Text }
