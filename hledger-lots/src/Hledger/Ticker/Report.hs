@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use section" #-}
 
 module Hledger.Ticker.Report where
 
@@ -40,8 +42,11 @@ marketPriceOutputFormatCsv (Just s)
   | map toLower s == "csv" = True
   | otherwise = False
 
-fetchMarketPrice :: CliOpts -> IO (Either Error [(LCT.CommodityNames, YPriceDirective)])
-fetchMarketPrice opts = do
+fetchMarketPrice
+  :: Maybe FilePath
+  -> CliOpts
+  -> IO (Either Error [(LCT.CommodityNames, YPriceDirective)])
+fetchMarketPrice out opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j
@@ -71,22 +76,25 @@ fetchMarketPrice opts = do
           aux [] a = fmap (:[]) (pdirectiveWithAlias <*> cNameInfo <*> pure a)
           aux acc@(x:_) a = (:) <$> (pdirectiveWithAlias <*> (pure $ fst x) <*> pure a) <*> pure acc
 
-      return $ foldlM aux [] =<< price
+      let res = foldlM aux [] =<< price
+      ppMarketPrice out opts res
+      return res
 
 ppMarketPrice
-  :: CliOpts
+  :: Maybe FilePath
+  -> CliOpts
   -> Either Error [(LCT.CommodityNames, YPriceDirective)]
   -> IO ()
-ppMarketPrice opts pdirective = do
+ppMarketPrice out opts pdirective = do
   let isCsvFormat = marketPriceOutputFormatCsv $ output_format_ opts
+  handleOut <- maybe (return stdout) (flip openFile AppendMode) out
   case pdirective of
     Left e -> hPrint stderr e
-    Right [] -> putStrLn ""
+    Right [] -> hPutStrLn handleOut ""
     Right ts@(t:_) -> do
-      mapM_ putStrLn $ (T.unpack . strPriceDirective isCsvFormat . snd) <$> ts
       let ss = LCT.activeSymbol $ fst t
       if null ss then
-        return ()
+        mapM_ (hPutStrLn handleOut) $ (T.unpack . strPriceDirective isCsvFormat . snd) <$> ts
       else do
         hPutStrLn stderr "-------"
         hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
