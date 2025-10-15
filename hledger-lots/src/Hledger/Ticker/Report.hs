@@ -13,6 +13,7 @@ import qualified Data.Aeson as A
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as BLC
+import Data.Foldable (foldlM)
 
 commodityInfoFlag :: Flag RawOpts
 commodityInfoFlag = flagNone
@@ -69,28 +70,27 @@ fetchMarketPrice opts = do
       let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, T.Text))
           pdirectiveWithAlias = strPriceDirtive isCsvFormat <$> tAliases
 
-      let aux :: [Either Error (LCT.CommodityNames, T.Text)] -> TickerInfo -> [Either Error (LCT.CommodityNames, T.Text)]
-          aux [] a = (pdirectiveWithAlias <*> cNameInfo <*> pure a):[(fmap (,"") cNameInfo)]
-          aux acc@(x:_) a = (pdirectiveWithAlias <*> (fst <$> x) <*> pure a):acc
+      let aux :: [(LCT.CommodityNames, T.Text)] -> TickerInfo -> Either Error [(LCT.CommodityNames, T.Text)]
+          aux [] a = fmap (:[]) (pdirectiveWithAlias <*> cNameInfo <*> pure a)
+          aux acc@(x:_) a = (:) <$> (pdirectiveWithAlias <*> (pure $ fst x) <*> pure a) <*> pure acc
 
-      let pdirective = foldl' aux [] <$> price
+      let pdirective = foldlM aux [] =<< price
+
       case pdirective of
-        Left e -> print e
-        Right ts -> do
-          mapM_ putStrLn $ (T.unpack . either (T.pack . show) snd) <$> ts
-          case head ts of
-            Left e -> print e
-            Right e -> do
-              let ss = LCT.activeSymbol $ fst e
-              if null ss then
-                return ()
-              else do
-                hPutStrLn stderr "-------" 
-                hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
-                hPutStrLn stderr "Please check the quotes in .journal are correct."
-                hPutStrLn stderr ""
-                mapM_ (hPutStrLn stderr. toStr) ss
-                  where toStr (LCT.S yt) = T.unpack yt
+        Left e -> hPrint stderr e
+        Right [] -> putStrLn ""
+        Right ts@(t:_) -> do
+          mapM_ putStrLn $ (T.unpack . snd) <$> ts
+          let ss = LCT.activeSymbol $ fst t
+          if null ss then
+            return ()
+          else do
+            hPutStrLn stderr "-------"
+            hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
+            hPutStrLn stderr "Please check the quotes in .journal are correct."
+            hPutStrLn stderr ""
+            mapM_ (hPutStrLn stderr. toStr) ss
+              where toStr (LCT.S yt) = T.unpack yt
 
 displayCommodityInfo :: CliOpts -> IO BL.ByteString
 displayCommodityInfo opts = do
@@ -106,7 +106,7 @@ displayCommodityInfo opts = do
 
 -- TODO: support market price
 run :: IO BL.ByteString
-run = do 
+run = do
     opts <- getHledgerCliOpts cmdmode
     if isDisplayCommodityInfo opts
     then displayCommodityInfo opts
