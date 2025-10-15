@@ -42,7 +42,7 @@ marketPriceOutputFormatCsv (Just s)
   | map toLower s == "csv" = True
   | otherwise = False
 
-fetchMarketPrice :: CliOpts -> IO ()
+fetchMarketPrice :: CliOpts -> IO (Either Error [(LCT.CommodityNames, Text)])
 fetchMarketPrice opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
@@ -74,8 +74,10 @@ fetchMarketPrice opts = do
           aux [] a = fmap (:[]) (pdirectiveWithAlias <*> cNameInfo <*> pure a)
           aux acc@(x:_) a = (:) <$> (pdirectiveWithAlias <*> (pure $ fst x) <*> pure a) <*> pure acc
 
-      let pdirective = foldlM aux [] =<< price
+      return $ foldlM aux [] =<< price
 
+ppMarketPrice :: Either Error [(LCT.CommodityNames, Text)] -> IO ()
+ppMarketPrice pdirective =
       case pdirective of
         Left e -> hPrint stderr e
         Right [] -> putStrLn ""
@@ -92,23 +94,20 @@ fetchMarketPrice opts = do
             mapM_ (hPutStrLn stderr. toStr) ss
               where toStr (LCT.S yt) = T.unpack yt
 
-displayCommodityInfo :: CliOpts -> IO BL.ByteString
+displayCommodityInfo :: CliOpts -> IO (Either Error [LCT.CommodityTags])
 displayCommodityInfo opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
       let filepath = head $ jincludefilestack j
       info <- LCT.parse filepath
-      let cs :: Either Error [LCT.CommodityTags]
-          cs = (\(x,_,_) -> x) <$> info
-      return $ case cs of
-        Left e -> BLC.pack $ show e
-        Right e -> A.encode e
+      return $ (\(x,_,_) -> x) <$> info
 
--- TODO: support market price
-run :: IO BL.ByteString
-run = do
+ppDisplayCommodityInfo :: Either Error [LCT.CommodityTags] -> IO ()
+ppDisplayCommodityInfo (Left e) = hPrint stderr e
+ppDisplayCommodityInfo (Right e) = BLC.putStrLn $ A.encode e
+
+runWithArg :: (CliOpts -> IO a) -> IO a
+runWithArg f = do
     opts <- getHledgerCliOpts cmdmode
-    if isDisplayCommodityInfo opts
-    then displayCommodityInfo opts
-    else return "Not Implement"
+    f opts
 
