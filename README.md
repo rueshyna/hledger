@@ -36,33 +36,75 @@ The command is similar to `reg`, but it displays additional information by addin
 ```
 
 ## hledger-tickers
-Supports fetching current market prices from the Yahoo Finance API, and also supports multiple currencies. Additional tags following the **hledger** format are required.
 
-Tags:
-- `yahoo-ticker` is optional. If it isn't provided and `status` is active, an error will occur.
-- `status` defaults to inactive. `hledger-tickers` will only fetch market prices when `status` is active.
-- `name` is optional. This is a human-readable name.
-- `alias` is optional. If the currency of the commodity differs from the Yahoo Finance API, `alias` is required.
+Supports fetching current market prices from the Yahoo Finance API, and supports multiple currencies. Additional tags following the **hledger** format are supported, including the new **group** feature.
+
+> New in this version: **Group (group)** — tag commodities with one or more subgroups, and declare up to two levels of grouping (Top group ➝ Subgroups).
+
+### Tags
+
+- `yahoo-ticker` (optional): If omitted while `status` is `active`, the command fails with an error.
+- `status` (default: `inactive`): `hledger-tickers` fetches prices only when `status` is `active`.
+- `name` (optional): Human-readable name.
+- `alias` (optional): Required if the commodity’s currency differs from the Yahoo Finance API’s currency.
+- `group` (optional / **new**): One or more subgroup names, comma-separated. Subgroups must be defined in a `;; G` declaration (see next section).
+
+### Group declarations (two-level structure) — **new**
+
+Declare groups at the top of your journal using lines that start with `;; G`. Each line defines a **top group** and a comma-separated list of **subgroups**:
+
+```
+;; G <top-group> <subgroup1>,<subgroup2>,<subgroup3>
+```
+
+Rules:
+
+- One `;; G` line = one top group with multiple subgroups.
+- Subgroup names must not contain spaces; separate multiple subgroups with commas.
+- On any `commodity` line, the `group:` tag must reference one or more **previously declared subgroups** (comma-separated is allowed).
+- Exactly two levels are supported (top group ➝ subgroup); deeper nesting is not supported.
+
+
+### Example
 
 ```bash
 > cat ./commodity.journal
 ; example data
 
-commodity $1000.                   ; yahoo_ticker:, status:inactive, alias:TWD
-commodity USD1000.00               ; yahoo_ticker:TWD=X, status:active
-commodity EUR1000.00               ; yahoo_ticker:EURUSD=X, status:active
-commodity twfiv 1000.              ; yahoo_ticker:0050.TW, status:active, name:台灣50
-commodity tsmc 1000.               ; yahoo_ticker:2330.TW, status:active, name:台積電
-commodity aapl 1000.0000           ; yahoo_ticker:AAPL, status:active
-commodity vti 1000.0000            ; yahoo_ticker:VTI, status:active
-```
+;; G Currency currency
+;; G TW semi,tw_etf,network,ai_pc,tradition
+;; G US us_etf,m7
+
+; active
+commodity $1000.00                 ; yahoo_ticker:, status:inactive, alias:TWD, group:currency
+commodity USD1000.00               ; yahoo_ticker:TWD=X, status:active, group:currency
+commodity EUR1000.00               ; yahoo_ticker:EURUSD=X, status:active, group:currency
+
+commodity tsmc 1000.00             ; yahoo_ticker:2330.TW, status:active, name:台積電, group:giant_tech
+commodity delta 1000.00            ; yahoo_ticker:2308.TW, status:active, name:台達電, group:giant_tech
+commodity mtk 1000.00              ; yahoo_ticker:2454.TW, status:active, name:聯發科, group:giant_tech
+
+commodity aapl 1000.0000           ; yahoo_ticker:AAPL, status:active, group:m7
+commodity nvda 1000.0000           ; yahoo_ticker:NVDA, status:active, group:m7
+commodity meta 1000.0000           ; yahoo_ticker:META, status:active, group:m7
+
+commodity vti 1000.0000            ; yahoo_ticker:VTI, status:active, group:us_etf
+commodity spy 1000.0000            ; yahoo_ticker:SPY, status:active, group:us_etf
+
 
 ```bash
 > hledger tickers -f ./commodity.journal
-P 2024-09-19 USD $31.981
-P 2024-09-19 EUR USD1.1104941
-P 2024-09-19 twfiv $179.7
-P 2024-09-19 tsmc $949.0
-P 2024-09-18 aapl USD220.69
-P 2024-09-18 vti USD277.35
+P 2025-10-21 USD $30.627
+P 2025-10-21 EUR USD1.1655
+
+P 2025-10-21 tsmc $1465.00
+P 2025-10-21 delta $400.00
+P 2025-10-21 mtk $1340.00
+
+P 2025-10-21 aapl USD262.24
+P 2025-10-21 nvda USD182.64
+P 2025-10-21 meta USD732.17
+
+P 2025-10-21 vti USD330.95
+P 2025-10-21 spy USD671.30
 ```

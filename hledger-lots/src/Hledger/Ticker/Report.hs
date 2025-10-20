@@ -103,7 +103,7 @@ ppMarketPrice out opts pdirective = do
         mapM_ (hPutStrLn stderr. toStr) ss
           where toStr (LCT.S yt) = T.unpack yt
 
-displayCommodityInfo :: CliOpts -> IO (Either Error [LCT.CommodityTags])
+displayCommodityInfo :: CliOpts -> IO (Either Error LCT.CommodityInfo)
 displayCommodityInfo opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
@@ -111,7 +111,7 @@ displayCommodityInfo opts = do
       info <- LCT.parse filepath
       return $ (\(x,_,_) -> x) <$> info
 
-ppDisplayCommodityInfo :: Either Error [LCT.CommodityTags] -> IO ()
+ppDisplayCommodityInfo :: Either Error LCT.CommodityInfo -> IO ()
 ppDisplayCommodityInfo (Left e) = hPrint stderr e
 ppDisplayCommodityInfo (Right e) = BLC.putStrLn $ A.encode e
 

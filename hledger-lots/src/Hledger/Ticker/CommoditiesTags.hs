@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Hledger.Ticker.CommoditiesTags where
 
@@ -17,6 +16,7 @@ import qualified Text.Parsec.Text as PT
 import qualified Text.Parsec.Char as PC
 import Hledger.Ticker.Error
 import GHC.Generics (Generic)
+import qualified Data.Map as M
 
 newtype Name = N { name :: T.Text }
   deriving (Generic, Show, Eq, Ord)
@@ -30,25 +30,53 @@ newtype Symbol = S { symbol :: T.Text }
 newtype YTicker = YT { yticker :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
+newtype Group = G { group :: T.Text }
+  deriving (Generic, Show, Eq, Ord)
+
+newtype Subgroup = SG { subgroup :: T.Text }
+  deriving (Generic, Show, Eq, Ord)
+
+newtype GroupHierarchy = GroupHierarchy (Group, [Subgroup])
+  deriving Show
+
 data CommodityTags = CommodityTags
   { ctsymbol :: Symbol
   , ctyahooTicker :: YTicker
   , ctstatus :: Bool
   , ctalias :: Maybe Alias
   , ctname :: Maybe Name
+  , csubgroup :: [Subgroup]
   } deriving (Generic, Show, Eq)
 
+data GroupHierarchyOrCommodityTags
+  = GH GroupHierarchy
+  | CT CommodityTags
+  deriving Show
+
+data CommodityInfo = CS
+  { csgroupHierarchy :: M.Map Group [Subgroup]
+  , cscommoditiesTags :: [CommodityTags]
+  } deriving (Show, Generic, Eq)
+
+instance A.ToJSONKey Group
 instance A.ToJSON YTicker
 instance A.ToJSON Name
 instance A.ToJSON Alias
 instance A.ToJSON Symbol
+instance A.ToJSON Subgroup
 instance A.ToJSON CommodityTags
+instance A.ToJSON Group
+instance A.ToJSON CommodityInfo
 
+instance A.FromJSONKey Group
 instance A.FromJSON YTicker
 instance A.FromJSON Name
 instance A.FromJSON Alias
 instance A.FromJSON Symbol
+instance A.FromJSON Subgroup
 instance A.FromJSON CommodityTags
+instance A.FromJSON Group
+instance A.FromJSON CommodityInfo
 
 newtype CommodityNames = CN (MA.Map YTicker Symbol)
    deriving (Show, Eq, Generic)
@@ -67,26 +95,35 @@ parseTagValue = do
   skipMany space
   tag <- T.pack <$> many1 (letter <|> char '_' )
   _ <- char ':'
-  value <- T.pack <$>  (many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-' <|> chineseChar))
+  value <- T.pack <$>  many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-' <|> char '_' <|>  char '/' <|> chineseChar)
   skipMany space
   return (tag, value)
 
-commodityTagsParser :: PT.Parser CommodityTags
+groupParser :: Maybe T.Text -> PT.Parser [Subgroup]
+groupParser Nothing =  return []
+groupParser (Just raw) = return $ map SG $ T.split (=='/') raw
+
+commodityTagsParser :: PT.Parser GroupHierarchyOrCommodityTags
 commodityTagsParser = do
   _ <- string "commodity"
   spaces
-  sym <- T.pack <$>
-    (between (string "\"") (string "\"") (many1 (alphaNum <|> space <|> char '-' <|> char '.')) <|>
-    many1 (letter <|> char '$' <|> char '_'))
+  sym
+    <- T.pack
+    <$> (between
+           (string "\"")
+           (string "\"")
+           (many1 (alphaNum <|> space <|> char '-' <|> char '.'))
+    <|> many1 (letter <|> char '$' <|> char '_'))
   _ <- manyTill anyChar $ string ";"
-  fields <-   parseTagValue `sepEndBy` (char ',')
+  fields <-   parseTagValue `sepEndBy` char ','
   let yt = lookup "yahoo_ticker" fields
   let status = lookup "status" fields >>= parseStatusText
-  let alias = lookup "alias" fields
-  let name = lookup "name" fields
+  let alias_ = lookup "alias" fields
+  let name_ = lookup "name" fields
+  group_ <- groupParser $ lookup "group" fields
   case yt of
     Nothing -> fail "Missing required field: yahoo_ticker"
-    Just ytValue -> return $ CommodityTags (S sym) (YT ytValue) (M.fromMaybe True status) (A <$> alias) (N <$> name)
+    Just ytValue -> return $ CT $ CommodityTags (S sym) (YT ytValue) (Just False /= status) (A <$> alias_) (N <$> name_) group_
   where
     parseStatusText :: T.Text -> Maybe Bool
     parseStatusText txt = case txt of
@@ -94,20 +131,53 @@ commodityTagsParser = do
       "inactive" -> Just False
       _ -> Nothing
 
-ignoreLine :: PT.Parser (Maybe CommodityTags)
+ignoreLine :: PT.Parser (Maybe GroupHierarchyOrCommodityTags)
 ignoreLine = do
-  _ <- notFollowedBy $ string "commodity "
+  _ <- notFollowedBy (string "commodity " <|> string ";; G")
   _ <- manyTill anyChar endOfLine
   return Nothing
 
-commoditiesTagsParser :: PT.Parser [CommodityTags]
-commoditiesTagsParser = M.catMaybes <$> many (ignoreLine <|> (Just <$> commodityTagsParser <* many endOfLine))
+parseSubGroupName :: PT.Parser Subgroup
+parseSubGroupName = do
+  skipMany space
+  SG . T.pack <$> many1 (letter <|> char '_' )
+
+groupSystemParsers :: PT.Parser GroupHierarchyOrCommodityTags
+groupSystemParsers = do
+  _ <- string ";; G"
+  spaces
+  groupName <- T.pack <$> many1 (letter <|> char '$' <|> char '_')
+  spaces
+  subgroup_ <- parseSubGroupName `sepEndBy` char ','
+  return $ GH $ GroupHierarchy (G groupName, subgroup_)
+
+groupHierarchyOrCommodityTagsParser :: PT.Parser [GroupHierarchyOrCommodityTags]
+groupHierarchyOrCommodityTagsParser =
+  M.catMaybes <$>
+    many (
+          ignoreLine
+      <|> Just <$> commodityTagsParser <* many endOfLine
+      <|> Just <$> groupSystemParsers <* many endOfLine
+    )
+
+toCommodityInfo
+  :: [GroupHierarchyOrCommodityTags]
+  -> CommodityInfo
+toCommodityInfo x = sep x (CS M.empty  [])
+  where
+    sep
+      :: [GroupHierarchyOrCommodityTags]
+      -> CommodityInfo
+      -> CommodityInfo
+    sep [] cs = cs
+    sep (GH (GroupHierarchy (k,v)):xs) (CS gc cc) = sep xs (CS (M.insert k v gc) cc)
+    sep (CT c:xs) (CS gc cc) = sep xs (CS gc (c:cc))
 
 buildAliases :: [CommodityTags] -> Aliases
 buildAliases ct = Aliases $ L.foldl' insertAlias MA.empty ct
   where
     insertAlias acc tags = case ctalias tags of
-      Just alias -> MA.insert alias (ctsymbol tags) acc
+      Just alias_ -> MA.insert alias_ (ctsymbol tags) acc
       Nothing -> acc
 
 buildCommodityNames :: [CommodityTags] -> CommodityNames
@@ -121,9 +191,12 @@ activeYTicker (CN cm) = MA.keys cm
 activeSymbol :: CommodityNames -> [Symbol]
 activeSymbol (CN cm) = MA.elems cm
 
-parse :: FilePath -> IO (Either Error ([CommodityTags], Aliases, CommodityNames))
+parse :: FilePath -> IO (Either Error (CommodityInfo, Aliases, CommodityNames))
 parse filepath = do
   content <- TIO.readFile filepath
-  case P.parse commoditiesTagsParser "commodities with tags" content of
+  case P.parse groupHierarchyOrCommodityTagsParser "commodities with tags or group" content of
     Left e -> return $ Left $ ParseCommoditiesTagsError e
-    Right ct -> return $ Right (ct, buildAliases ct, buildCommodityNames ct)
+    Right raw -> do
+      let info = toCommodityInfo raw
+          ct = cscommoditiesTags info
+      return $ Right (info, buildAliases ct, buildCommodityNames ct)
