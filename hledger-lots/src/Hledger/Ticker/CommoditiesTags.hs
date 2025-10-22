@@ -197,7 +197,7 @@ verify c =
     Just g -> Left $ VerifyError $ T.pack (show $ subgroup g) <> " isn't in any group."
     Nothing -> Right c
   where
-    declearGroup = traceShowId $ concat $ M.elems $ csgroupHierarchy c
+    declearGroup = concat $ M.elems $ csgroupHierarchy c
     ctagsGroup = concatMap csubgroup $ cscommoditiesTags c
     check :: [Subgroup] -> [Subgroup] -> Maybe Subgroup
     check list = L.find (`notElem` list)
