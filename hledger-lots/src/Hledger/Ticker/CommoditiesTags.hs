@@ -9,6 +9,7 @@ import qualified Data.Text.IO as TIO
 import qualified Data.Text as T
 import qualified Data.List as L
 import qualified Data.Aeson as A
+import qualified Data.Map as M
 import Data.Char (isAlpha)
 
 import Text.Parsec as P
@@ -16,7 +17,6 @@ import qualified Text.Parsec.Text as PT
 import qualified Text.Parsec.Char as PC
 import Hledger.Ticker.Error
 import GHC.Generics (Generic)
-import qualified Data.Map as M
 
 newtype Name = N { name :: T.Text }
   deriving (Generic, Show, Eq, Ord)
@@ -137,10 +137,10 @@ ignoreLine = do
   _ <- manyTill anyChar endOfLine
   return Nothing
 
-parseSubGroupName :: PT.Parser Subgroup
-parseSubGroupName = do
+parseSubgroupName :: PT.Parser Subgroup
+parseSubgroupName = do
   skipMany space
-  SG . T.pack <$> many1 (letter <|> char '_' )
+  SG . T.pack <$> many1 (alphaNum <|> char '_' )
 
 groupSystemParsers :: PT.Parser GroupHierarchyOrCommodityTags
 groupSystemParsers = do
@@ -148,7 +148,7 @@ groupSystemParsers = do
   spaces
   groupName <- T.pack <$> many1 (letter <|> char '$' <|> char '_')
   spaces
-  subgroup_ <- parseSubGroupName `sepEndBy` char ','
+  subgroup_ <- parseSubgroupName `sepEndBy` char ','
   return $ GH $ GroupHierarchy (G groupName, subgroup_)
 
 groupHierarchyOrCommodityTagsParser :: PT.Parser [GroupHierarchyOrCommodityTags]
@@ -191,12 +191,25 @@ activeYTicker (CN cm) = MA.keys cm
 activeSymbol :: CommodityNames -> [Symbol]
 activeSymbol (CN cm) = MA.elems cm
 
+verify :: CommodityInfo -> Either Error CommodityInfo
+verify c = 
+  case check declearGroup ctagsGroup of
+    Just g -> Left $ VerifyError $ T.pack (show $ subgroup g) <> " isn't in any group."
+    Nothing -> Right c
+  where
+    declearGroup = traceShowId $ concat $ M.elems $ csgroupHierarchy c
+    ctagsGroup = concatMap csubgroup $ cscommoditiesTags c
+    check :: [Subgroup] -> [Subgroup] -> Maybe Subgroup
+    check list = L.find (`notElem` list)
+
 parse :: FilePath -> IO (Either Error (CommodityInfo, Aliases, CommodityNames))
 parse filepath = do
   content <- TIO.readFile filepath
   case P.parse groupHierarchyOrCommodityTagsParser "commodities with tags or group" content of
     Left e -> return $ Left $ ParseCommoditiesTagsError e
     Right raw -> do
-      let info = toCommodityInfo raw
-          ct = cscommoditiesTags info
-      return $ Right (info, buildAliases ct, buildCommodityNames ct)
+      let eInfo = verify $ toCommodityInfo raw
+      return $
+        flip fmap eInfo $ \info ->
+          let ct = cscommoditiesTags info
+          in (info, buildAliases ct, buildCommodityNames ct)

@@ -8,4 +8,5 @@ data Error = DecodeResponseError String
            | YahooFinanceError T.Text
            | ParseCommoditiesTagsError P.ParseError
            | ParseConfigError Y.ParseException
+           | VerifyError T.Text
   deriving Show
