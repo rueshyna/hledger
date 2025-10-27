@@ -146,7 +146,7 @@ groupSystemParsers :: PT.Parser GroupHierarchyOrCommodityTags
 groupSystemParsers = do
   _ <- string ";; G"
   spaces
-  groupName <- T.pack <$> many1 (letter <|> char '$' <|> char '_')
+  groupName <- T.pack <$> many1 (alphaNum <|> char '$' <|> char '_')
   spaces
   subgroup_ <- parseSubgroupName `sepEndBy` char ','
   return $ GH $ GroupHierarchy (G groupName, subgroup_)
