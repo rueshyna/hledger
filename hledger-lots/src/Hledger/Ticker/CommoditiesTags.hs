@@ -95,7 +95,7 @@ parseTagValue = do
   skipMany space
   tag <- T.pack <$> many1 (letter <|> char '_' )
   _ <- char ':'
-  value <- T.pack <$>  many (alphaNum <|> char '.' <|> char '='<|> char '^' <|> char '-' <|> char '_' <|>  char '/' <|> chineseChar)
+  value <- T.pack <$>  many (alphaNum <|> char '&' <|> char '.' <|> char '='<|> char '^' <|> char '-' <|> char '_' <|>  char '/' <|> chineseChar)
   skipMany space
   return (tag, value)
 
