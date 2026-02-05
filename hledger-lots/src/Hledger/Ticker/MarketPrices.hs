@@ -22,6 +22,7 @@ import           Data.Scientific as S
 import qualified Hledger.Ticker.CommoditiesTags as L
 import qualified Hledger.Ticker.Config as C
 import Hledger.Ticker.Error
+import Data.Char (isDigit)
 
 newtype Timestamp = Timestamp TI.UTCTime deriving (Generic, Show, Eq)
 
@@ -74,11 +75,16 @@ strPriceDirective :: Bool -> YPriceDirective -> T.Text
 strPriceDirective isCsv pd =
   prefix <>
   T.pack (formatUTCTime (ypdtime pd)) <> delim <>
-  (ypdname pd) <> delim <>
+  quotedName <> delim <>
   (ypdunit pd) <> splitUnit <> T.pack (show $ ypdprice pd)
       where prefix = if isCsv then "" else "P "
             delim = if isCsv then "," else " "
             splitUnit = if isCsv then "," else ""
+            nameRaw = ypdname pd
+            quotedName =
+              if T.any isDigit nameRaw
+              then "\"" <> nameRaw <> "\""
+              else nameRaw
 
 data TickerInfoResponse =
   TickerInfoResponse { tickersInfo :: V.Vector TickerInfo, errorMsg :: Maybe T.Text }
