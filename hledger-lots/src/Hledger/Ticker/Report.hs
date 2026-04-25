@@ -13,6 +13,9 @@ import Hledger.Ticker.Error
 import qualified Data.Aeson as A
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as BLC
+import qualified Data.Map.Strict as MA
+import qualified Data.Set as S
+import qualified Data.List as L
 import Data.Foldable (foldlM)
 
 commodityInfoFlag :: Flag RawOpts
@@ -42,6 +45,36 @@ marketPriceOutputFormatCsv (Just s)
   | map toLower s == "csv" = True
   | otherwise = False
 
+heldSymbolsByCur :: CliOpts -> Journal -> [LCT.Symbol]
+heldSymbolsByCur CliOpts{reportspec_=rspec} j =
+  L.nub $ map LCT.S $ filter (not . T.null) $ (\(name, _, _, _) -> name) <$> items
+  where
+    ropts = _rsReportOpts rspec
+    tickerRspec =
+      rspec
+        { _rsReportOpts =
+            ropts
+              { balanceaccum_ = Historical
+              , accountlistmode_ = ALFlat
+              , no_total_ = True
+              }
+        }
+    (items, _) = balanceReport tickerRspec $ journalPivot "cur" j
+
+commodityNamesFromHeldSymbols
+  :: [LCT.Symbol]
+  -> LCT.CommodityInfo
+  -> LCT.CommodityNames
+commodityNamesFromHeldSymbols held info =
+  LCT.CN $ MA.fromList
+    [ (LCT.ctyahooTicker tagInfo, LCT.ctsymbol tagInfo)
+    | tagInfo <- LCT.cscommoditiesTags info
+    , LCT.ctstatus tagInfo
+    , LCT.ctsymbol tagInfo `S.member` heldSet
+    ]
+  where
+    heldSet = S.fromList held
+
 fetchMarketPrice
   :: Maybe FilePath
   -> CliOpts
@@ -53,8 +86,10 @@ fetchMarketPrice out opts = do
       info <- LCT.parse filepath
       let tAliases :: Either Error LCT.Aliases
           tAliases = (\(_,x,_) -> x) <$> info
+          commodityInfo :: Either Error LCT.CommodityInfo
+          commodityInfo = (\(x,_,_) -> x) <$> info
           cNameInfo :: Either Error LCT.CommodityNames
-          cNameInfo = (\(_,_,x) -> x) <$> info
+          cNameInfo = commodityNamesFromHeldSymbols (heldSymbolsByCur opts j) <$> commodityInfo
           yTickers :: Either Error [LCT.YTicker]
           yTickers = LCT.activeYTicker <$> cNameInfo
 
@@ -65,9 +100,11 @@ fetchMarketPrice out opts = do
       let apiToken = fmap (yahooFinanceApiKey . LC.tickers) configResult
 
       -- get price
-      priceM <- sequence $ craw <$> apiToken <*> yTickers
-      let price :: Either Error [TickerInfo]
-          price = join priceM
+      price <- case (apiToken, yTickers) of
+        (_, Right []) -> return $ Right []
+        _ -> do
+          priceM <- sequence $ craw <$> apiToken <*> yTickers
+          return $ join priceM
 
       let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, YPriceDirective))
           pdirectiveWithAlias = toPriceDirective <$> tAliases
@@ -119,4 +156,3 @@ runWithArg :: (CliOpts -> IO a) -> IO a
 runWithArg f = do
     opts <- getHledgerCliOpts cmdmode
     f opts
-

@@ -1,0 +1,37 @@
+; Sample for hledger ticker
+;
+; Try:
+;   stack exec hledger-tickers -- -f examples/ticker-sample.journal
+;
+; The ticker command selects held commodities from the equivalent of:
+;   hledger bal -H --pivot cur -N
+;
+; Expected fetch candidates:
+;   - tsmc: held, no status, defaults to active
+;   - nvda: held, status active
+; Not fetched:
+;   - dell: held, but status inactive
+;   - amd: declared active, but not held in any posting's cur tag
+
+commodity tsmc ; yahoo_ticker:2330.TW, name:Taiwan Semiconductor
+commodity nvda ; yahoo_ticker:NVDA, status:active, name:NVIDIA
+commodity dell ; yahoo_ticker:DELL, status:inactive, name:Dell
+commodity amd ; yahoo_ticker:AMD, status:active, name:AMD
+
+2026-01-02 Buy TSMC
+  assets:broker:tw       10 tsmc @@ 1000 TWD ; cur:tsmc
+  assets:cash                         -1000 TWD
+
+2026-01-03 Buy NVDA
+  assets:broker:us        2 nvda @@ 900 USD ; cur:nvda
+  assets:cash                         -900 USD
+
+2026-01-04 Buy inactive DELL
+  assets:broker:us        1 dell @@ 100 USD ; cur:dell
+  assets:cash                         -100 USD
+
+; A commodity declaration without yahoo_ticker is still invalid for ticker metadata.
+; commodity mystery ; status:active
+; 2026-01-05 Buy missing ticker
+;   assets:broker:us      1 mystery @@ 50 USD ; cur:mystery
+;   assets:cash                         -50 USD

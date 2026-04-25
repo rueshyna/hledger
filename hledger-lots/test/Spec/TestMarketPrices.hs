@@ -3,7 +3,7 @@
 module Spec.TestMarketPrices where
 
 import Test.Hspec
-import Lib.MarketPrices
+import Hledger.Ticker.MarketPrices
 
 import qualified Data.Time.Clock.POSIX as D
 import Data.Aeson (decode, eitherDecode)
@@ -11,11 +11,11 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
 import qualified Data.Map as MA
-import qualified Lib.CommoditiesTags as L
+import qualified Hledger.Ticker.CommoditiesTags as L
 
 testMarketPrices :: Spec
 testMarketPrices =
-  describe "strPriceDirtive" $ do
+  describe "toPriceDirective" $ do
     it "formats the TickerInfo correctly" $ do
       let marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
       let ticker = TickerInfo
@@ -26,7 +26,8 @@ testMarketPrices =
             }
       let as = L.Aliases $ MA.empty
       let cn = L.CN $ MA.empty
-      strPriceDirtive as cn ticker `shouldBe` (cn, "P 2024-08-02 Gold oz1234.56")
+      let (_, directive) = toPriceDirective as cn ticker
+      strPriceDirective False directive `shouldBe` "P 2024-08-02 Gold oz1234.56"
 
 testDecodeTickerInfo :: Spec
 testDecodeTickerInfo =
@@ -49,4 +50,3 @@ testDecodeTickerInfo =
           expectedTickerInfo = Left "Error in $: Failed reading: satisfy. Expecting object key at ',regularMarketTime:1722576602,regularMarketPrice:903.0,currency:TWD}'"
           decodedTickerInfo = eitherDecode (LB.fromStrict (TE.encodeUtf8 jsonStr)) :: Either String TickerInfo
       decodedTickerInfo `shouldBe` expectedTickerInfo
-

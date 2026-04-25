@@ -37,7 +37,7 @@ newtype Subgroup = SG { subgroup :: T.Text }
   deriving (Generic, Show, Eq, Ord)
 
 newtype GroupHierarchy = GroupHierarchy (Group, [Subgroup])
-  deriving Show
+  deriving (Show, Eq)
 
 data CommodityTags = CommodityTags
   { ctsymbol :: Symbol
@@ -51,7 +51,7 @@ data CommodityTags = CommodityTags
 data GroupHierarchyOrCommodityTags
   = GH GroupHierarchy
   | CT CommodityTags
-  deriving Show
+  deriving (Show, Eq)
 
 data CommodityInfo = CS
   { csgroupHierarchy :: M.Map Group [Subgroup]
@@ -183,7 +183,7 @@ buildAliases ct = Aliases $ L.foldl' insertAlias MA.empty ct
 buildCommodityNames :: [CommodityTags] -> CommodityNames
 buildCommodityNames cn = CN $ L.foldl' insertCN MA.empty $ filter ctstatus cn
   where
-    insertCN acc tags =  MA.insert (ctyahooTicker tags) (ctsymbol tags) acc
+    insertCN acc tags = MA.insert (ctyahooTicker tags) (ctsymbol tags) acc
 
 activeYTicker :: CommodityNames -> [YTicker]
 activeYTicker (CN cm) = MA.keys cm
