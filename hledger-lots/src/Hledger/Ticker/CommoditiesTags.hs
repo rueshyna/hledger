@@ -203,13 +203,32 @@ verify c =
     check list = L.find (`notElem` list)
 
 parse :: FilePath -> IO (Either Error (CommodityInfo, Aliases, CommodityNames))
-parse filepath = do
+parse filepath = parseFiles [filepath]
+
+parseFiles :: [FilePath] -> IO (Either Error (CommodityInfo, Aliases, CommodityNames))
+parseFiles filepaths = do
+  parsed <- traverse parseFile filepaths
+  return $ buildParsedInfo =<< sequence parsed
+
+parseTexts :: [(FilePath, T.Text)] -> Either Error (CommodityInfo, Aliases, CommodityNames)
+parseTexts files = buildParsedInfo =<< traverse (uncurry parseText) files
+
+buildParsedInfo
+  :: [[GroupHierarchyOrCommodityTags]]
+  -> Either Error (CommodityInfo, Aliases, CommodityNames)
+buildParsedInfo parsed = do
+  let raw = concat parsed
+  info <- verify $ toCommodityInfo raw
+  let ct = cscommoditiesTags info
+  return (info, buildAliases ct, buildCommodityNames ct)
+
+parseFile :: FilePath -> IO (Either Error [GroupHierarchyOrCommodityTags])
+parseFile filepath = do
   content <- TIO.readFile filepath
-  case P.parse groupHierarchyOrCommodityTagsParser "commodities with tags or group" content of
-    Left e -> return $ Left $ ParseCommoditiesTagsError e
-    Right raw -> do
-      let eInfo = verify $ toCommodityInfo raw
-      return $
-        flip fmap eInfo $ \info ->
-          let ct = cscommoditiesTags info
-          in (info, buildAliases ct, buildCommodityNames ct)
+  return $ parseText filepath content
+
+parseText :: FilePath -> T.Text -> Either Error [GroupHierarchyOrCommodityTags]
+parseText filepath content =
+  case P.parse groupHierarchyOrCommodityTagsParser filepath content of
+    Left e -> Left $ ParseCommoditiesTagsError e
+    Right raw -> Right raw

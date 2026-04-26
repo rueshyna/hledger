@@ -47,8 +47,10 @@ marketPriceOutputFormatCsv (Just s)
 
 heldSymbolsByCur :: CliOpts -> Journal -> [LCT.Symbol]
 heldSymbolsByCur CliOpts{reportspec_=rspec} j =
-  L.nub $ map LCT.S $ filter (not . T.null) $ (\(name, _, _, _) -> name) <$> items
+  L.nub $ map LCT.S $ filter (not . T.null) $ concatMap itemCommodities items
   where
+    itemCommodities (_, _, _, total) =
+      acommodity <$> amounts (mixedAmountStripPrices total)
     ropts = _rsReportOpts rspec
     tickerRspec =
       rspec
@@ -82,8 +84,7 @@ fetchMarketPrice
 fetchMarketPrice out opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
-      let filepath = head $ jincludefilestack j
-      info <- LCT.parse filepath
+      let info = LCT.parseTexts $ jfiles j
       let tAliases :: Either Error LCT.Aliases
           tAliases = (\(_,x,_) -> x) <$> info
           commodityInfo :: Either Error LCT.CommodityInfo
@@ -144,8 +145,7 @@ displayCommodityInfo :: CliOpts -> IO (Either Error LCT.CommodityInfo)
 displayCommodityInfo opts = do
     withJournalDo opts $ \j -> do
       -- parse to get tags, alias table, commodities' name table
-      let filepath = head $ jincludefilestack j
-      info <- LCT.parse filepath
+      let info = LCT.parseTexts $ jfiles j
       return $ (\(x,_,_) -> x) <$> info
 
 ppDisplayCommodityInfo :: Either Error LCT.CommodityInfo -> IO ()
