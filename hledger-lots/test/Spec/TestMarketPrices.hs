@@ -12,6 +12,8 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
 import qualified Data.Map as MA
+import qualified Data.Set as SE
+import qualified Data.Text as T
 import qualified Hledger.Ticker.CommoditiesTags as L
 
 testMarketPrices :: Spec
@@ -59,7 +61,7 @@ testQuoteCache =
       let now = UTCTime (fromGregorian 2026 6 3) (secondsToDiffTime 0)
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
           nvdaInfo = TickerInfo (L.YT "NVDA") marketTime 123.45 "USD"
-          cache = mergeTickerInfos now MA.empty [nvdaInfo]
+          cache = mergeTickerInfos now (emptyQuoteCache now) [nvdaInfo]
       splitCachedTickers (addUTCTime 60 now) False cache [L.YT "NVDA", L.YT "AMD"]
         `shouldBe` ([nvdaInfo], [L.YT "AMD"])
 
@@ -67,7 +69,7 @@ testQuoteCache =
       let now = UTCTime (fromGregorian 2026 6 3) (secondsToDiffTime 0)
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
           nvdaInfo = TickerInfo (L.YT "NVDA") marketTime 123.45 "USD"
-          cache = mergeTickerInfos now MA.empty [nvdaInfo]
+          cache = mergeTickerInfos now (emptyQuoteCache now) [nvdaInfo]
       splitCachedTickers (addUTCTime (13 * 60 * 60) now) False cache [L.YT "NVDA"]
         `shouldBe` ([], [L.YT "NVDA"])
 
@@ -75,13 +77,74 @@ testQuoteCache =
       let now = UTCTime (fromGregorian 2026 6 3) (secondsToDiffTime 0)
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
           nvdaInfo = TickerInfo (L.YT "NVDA") marketTime 123.45 "USD"
-          cache = mergeTickerInfos now MA.empty [nvdaInfo]
+          cache = mergeTickerInfos now (emptyQuoteCache now) [nvdaInfo]
       splitCachedTickers (addUTCTime 60 now) True cache [L.YT "NVDA"]
         `shouldBe` ([], [L.YT "NVDA"])
+
+    it "updates the cache timestamp when merging fetched quotes" $ do
+      let oldTime = UTCTime (fromGregorian 2026 6 3) (secondsToDiffTime 0)
+          newTime = addUTCTime 3600 oldTime
+          marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
+          nvdaInfo = TickerInfo (L.YT "NVDA") marketTime 123.45 "USD"
+          cache = mergeTickerInfos newTime (emptyQuoteCache oldTime) [nvdaInfo]
+      qcFetchedAt cache `shouldBe` newTime
 
     it "round-trips the cache as JSON" $ do
       let now = UTCTime (fromGregorian 2026 6 3) (secondsToDiffTime 0)
           marketTime = Timestamp $ D.posixSecondsToUTCTime 1722576602
           nvdaInfo = TickerInfo (L.YT "NVDA") marketTime 123.45 "USD"
-          cache = mergeTickerInfos now MA.empty [nvdaInfo]
+          cache = mergeTickerInfos now (emptyQuoteCache now) [nvdaInfo]
       (decode $ encode cache :: Maybe QuoteCache) `shouldBe` Just cache
+
+testPriceDedup :: Spec
+testPriceDedup =
+  describe "journal price dedup" $ do
+    it "parses unquoted journal price directive keys" $ do
+      parsePriceDirectiveKey "P 2026-06-03 AMD USD123.45"
+        `shouldBe` Just (PriceKey "2026-06-03" "AMD")
+
+    it "parses quoted journal price directive keys" $ do
+      parsePriceDirectiveKey "P 2026-06-03 \"2330\" TWD903.0"
+        `shouldBe` Just (PriceKey "2026-06-03" "2330")
+
+    it "skips directives that already exist by date and commodity" $ do
+      let directives =
+            [ priceDirective "2026-06-03" "AMD" 123.45
+            , priceDirective "2026-06-04" "AMD" 124.45
+            , priceDirective "2026-06-03" "NVDA" 987.65
+            ]
+          existing = SE.singleton $ PriceKey "2026-06-03" "AMD"
+      strPriceDirective False <$> dedupPriceDirectives existing directives
+        `shouldBe`
+          [ "P 2026-06-04 AMD USD124.45"
+          , "P 2026-06-03 NVDA USD987.65"
+          ]
+
+    it "keeps only the first directive with the same date and commodity in one run" $ do
+      let directives =
+            [ priceDirective "2026-06-03" "AMD" 123.45
+            , priceDirective "2026-06-03" "AMD" 124.45
+            ]
+      strPriceDirective False <$> dedupPriceDirectives SE.empty directives
+        `shouldBe` ["P 2026-06-03 AMD USD123.45"]
+
+    it "prepends an update header when price lines are present" $ do
+      priceUpdateHeaderLines (fromGregorian 2026 6 3) ["P 2026-06-03 AMD USD123.45"]
+        `shouldBe` ["", "; updated 2026-06-03", "P 2026-06-03 AMD USD123.45"]
+
+    it "does not add an update header when there are no price lines" $ do
+      priceUpdateHeaderLines (fromGregorian 2026 6 3) [] `shouldBe` []
+  where
+    priceDirective :: T.Text -> T.Text -> Rational -> YPriceDirective
+    priceDirective dateText name price =
+      PD
+        { ypdname = name
+        , ypdtime = Timestamp $ D.posixSecondsToUTCTime $ fromInteger $ dateToPosix dateText
+        , ypdunit = "USD"
+        , ypdprice = fromRational price
+        }
+
+    dateToPosix :: T.Text -> Integer
+    dateToPosix "2026-06-03" = 1780444800
+    dateToPosix "2026-06-04" = 1780531200
+    dateToPosix _ = 0

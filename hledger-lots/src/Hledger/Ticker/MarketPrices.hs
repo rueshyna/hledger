@@ -14,6 +14,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as MA
+import qualified Data.Set as SE
 import qualified Data.ByteString.Lazy as LB
 import           GHC.Generics (Generic)
 import           Data.Time as TI
@@ -27,6 +28,7 @@ import qualified Hledger.Ticker.CommoditiesTags as L
 import qualified Hledger.Ticker.Config as C
 import Hledger.Ticker.Error
 import Data.Char (isDigit)
+import Data.List (foldl')
 
 newtype Timestamp = Timestamp TI.UTCTime deriving (Generic, Show, Eq)
 
@@ -64,26 +66,38 @@ data CachedQuote = CachedQuote
   , cqMarketTime :: Timestamp
   , cqPrice :: Scientific
   , cqUnit :: T.Text
-  , cqFetchedAt :: TI.UTCTime
   }
   deriving (Show, Generic, Eq)
 
 instance J.FromJSON CachedQuote
 instance J.ToJSON CachedQuote
 
-type QuoteCache = MA.Map L.YTicker CachedQuote
+data QuoteCache = QuoteCache
+  { qcFetchedAt :: TI.UTCTime
+  , qcQuotes :: MA.Map L.YTicker CachedQuote
+  }
+  deriving (Show, Generic, Eq)
+
+instance J.FromJSON QuoteCache
+instance J.ToJSON QuoteCache
 
 quoteCacheTtl :: TI.NominalDiffTime
 quoteCacheTtl = 12 * 60 * 60
 
-tickerToCache :: TI.UTCTime -> TickerInfo -> CachedQuote
-tickerToCache fetchedAt ti =
+emptyQuoteCache :: TI.UTCTime -> QuoteCache
+emptyQuoteCache fetchedAt =
+  QuoteCache
+    { qcFetchedAt = fetchedAt
+    , qcQuotes = MA.empty
+    }
+
+tickerToCache :: TickerInfo -> CachedQuote
+tickerToCache ti =
   CachedQuote
     { cqSymbol = tksymbol ti
     , cqMarketTime = tkmarkettime ti
     , cqPrice = tkprice ti
     , cqUnit = tkunit ti
-    , cqFetchedAt = fetchedAt
     }
 
 cachedToTicker :: CachedQuote -> TickerInfo
@@ -95,44 +109,47 @@ cachedToTicker cq =
     , tkunit = cqUnit cq
     }
 
-isFreshCachedQuote :: TI.UTCTime -> CachedQuote -> Bool
-isFreshCachedQuote now cq =
-  TI.diffUTCTime now (cqFetchedAt cq) < quoteCacheTtl
+isFreshQuoteCache :: TI.UTCTime -> QuoteCache -> Bool
+isFreshQuoteCache now cache =
+  TI.diffUTCTime now (qcFetchedAt cache) < quoteCacheTtl
 
 splitCachedTickers :: TI.UTCTime -> Bool -> QuoteCache -> YTickers -> ([TickerInfo], YTickers)
 splitCachedTickers now refresh cache tickers
   | refresh = ([], tickers)
+  | not $ isFreshQuoteCache now cache = ([], tickers)
   | otherwise = foldr splitTicker ([], []) tickers
   where
     splitTicker ticker (cached, missing) =
-      case MA.lookup ticker cache of
-        Just cq | isFreshCachedQuote now cq ->
-          (cachedToTicker cq : cached, missing)
+      case MA.lookup ticker $ qcQuotes cache of
+        Just cq -> (cachedToTicker cq : cached, missing)
         _ -> (cached, ticker : missing)
 
 mergeTickerInfos :: TI.UTCTime -> QuoteCache -> [TickerInfo] -> QuoteCache
-mergeTickerInfos now =
-  foldr insertTicker
+mergeTickerInfos now cache infos =
+  cache
+    { qcFetchedAt = now
+    , qcQuotes = foldr insertTicker (qcQuotes cache) infos
+    }
   where
-    insertTicker ti = MA.insert (tksymbol ti) (tickerToCache now ti)
+    insertTicker ti = MA.insert (tksymbol ti) (tickerToCache ti)
 
 quoteCachePath :: IO FilePath
 quoteCachePath = do
   home <- getHomeDirectory
   return $ home </> ".cache" </> "hledger-lots" </> "yahoo-quotes.json"
 
-readQuoteCache :: IO QuoteCache
-readQuoteCache = do
+readQuoteCache :: TI.UTCTime -> IO QuoteCache
+readQuoteCache now = do
   cachePath <- quoteCachePath
   exists <- doesFileExist cachePath
   if not exists
-    then return MA.empty
+    then return $ emptyQuoteCache now
     else do
       content <- try (LB.readFile cachePath) :: IO (Either SomeException LB.ByteString)
       return $ case content of
-        Left _ -> MA.empty
+        Left _ -> emptyQuoteCache now
         Right bytes -> case J.eitherDecode bytes of
-          Left _ -> MA.empty
+          Left _ -> emptyQuoteCache now
           Right cache -> cache
 
 writeQuoteCache :: QuoteCache -> IO ()
@@ -154,6 +171,47 @@ data YPriceDirective = PD
   , ypdunit :: T.Text
   , ypdprice :: Scientific
   }
+  deriving (Show, Eq)
+
+data PriceKey = PriceKey
+  { pkDate :: T.Text
+  , pkCommodity :: T.Text
+  }
+  deriving (Show, Eq, Ord)
+
+priceDirectiveKey :: YPriceDirective -> PriceKey
+priceDirectiveKey pd =
+  PriceKey
+    { pkDate = T.pack $ formatUTCTime $ ypdtime pd
+    , pkCommodity = ypdname pd
+    }
+
+parsePriceDirectiveKey :: T.Text -> Maybe PriceKey
+parsePriceDirectiveKey line = do
+  rest <- T.stripPrefix "P " $ T.stripStart line
+  let (dateText, afterDate) = T.breakOn " " rest
+  commodityText <- parseCommodity $ T.stripStart afterDate
+  if T.null dateText || T.null commodityText
+    then Nothing
+    else Just $ PriceKey dateText commodityText
+  where
+    parseCommodity raw
+      | Just quoted <- T.stripPrefix "\"" raw =
+          let (commodityText, afterCommodity) = T.breakOn "\"" quoted
+          in if T.null afterCommodity then Nothing else Just commodityText
+      | otherwise =
+          let commodityText = T.takeWhile (/= ' ') raw
+          in if T.null commodityText then Nothing else Just commodityText
+
+dedupPriceDirectives :: SE.Set PriceKey -> [YPriceDirective] -> [YPriceDirective]
+dedupPriceDirectives existing directives =
+  reverse $ snd $ foldl' step (existing, []) directives
+  where
+    step (seen, kept) directive =
+      let key = priceDirectiveKey directive
+      in if key `SE.member` seen
+         then (seen, kept)
+         else (SE.insert key seen, directive : kept)
 
 toPriceDirective :: L.Aliases -> L.CommodityNames -> TickerInfo -> (L.CommodityNames, YPriceDirective)
 toPriceDirective (L.Aliases as) (L.CN cn) t =
@@ -180,6 +238,11 @@ strPriceDirective isCsv pd =
               then "\"" <> nameRaw <> "\""
               else nameRaw
 
+priceUpdateHeaderLines :: TI.Day -> [String] -> [String]
+priceUpdateHeaderLines _ [] = []
+priceUpdateHeaderLines day linesToWrite =
+  "" : ("; updated " <> TI.formatTime TI.defaultTimeLocale "%Y-%m-%d" day) : linesToWrite
+
 data TickerInfoResponse =
   TickerInfoResponse { tickersInfo :: V.Vector TickerInfo, errorMsg :: Maybe T.Text }
   deriving (Generic, Eq, Show)
@@ -200,7 +263,7 @@ type YTickers = [L.YTicker]
 crawCached :: Bool -> C.ApiKey -> YTickers -> IO (Either Error [TickerInfo])
 crawCached refresh apiKey tickers = do
   now <- TI.getCurrentTime
-  cache <- readQuoteCache
+  cache <- readQuoteCache now
   let (cached, missing) = splitCachedTickers now refresh cache tickers
   case missing of
     [] -> return $ Right cached

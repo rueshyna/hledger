@@ -10,3 +10,4 @@ main = do
   hspec testMarketPrices
   hspec testDecodeTickerInfo
   hspec testQuoteCache
+  hspec testPriceDedup

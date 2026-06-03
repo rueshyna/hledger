@@ -12,11 +12,14 @@ import Hledger.Ticker.Error
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.ByteString.Lazy.Char8 as BLC
 import qualified Data.Map.Strict as MA
 import qualified Data.Set as S
 import qualified Data.List as L
 import Data.Foldable (foldlM)
+import Control.Exception (SomeException, try)
+import qualified Data.Time as TI
 
 commodityInfoFlag :: Flag RawOpts
 commodityInfoFlag = flagNone
@@ -132,14 +135,17 @@ ppMarketPrice
   -> IO ()
 ppMarketPrice out opts pdirective = do
   let isCsvFormat = marketPriceOutputFormatCsv $ output_format_ opts
-  handleOut <- maybe (return stdout) (flip openFile AppendMode) out
   case pdirective of
     Left e -> hPrint stderr e
-    Right [] -> hPutStrLn handleOut ""
+    Right [] -> writeMarketPriceLines out [""]
     Right ts@(t:_) -> do
       let ss = LCT.activeSymbol $ fst t
       if null ss then
-        mapM_ (hPutStrLn handleOut) $ (T.unpack . strPriceDirective isCsvFormat . snd) <$> ts
+        do
+          directives <- dedupMarketPriceDirectives out $ snd <$> ts
+          let priceLines = (T.unpack . strPriceDirective isCsvFormat) <$> directives
+          linesToWrite <- addUpdateHeader out priceLines
+          writeMarketPriceLines out linesToWrite
       else do
         hPutStrLn stderr "-------"
         hPutStrLn stderr "The following the price of commodities couldn't be found in Yahoo Finance."
@@ -147,6 +153,37 @@ ppMarketPrice out opts pdirective = do
         hPutStrLn stderr ""
         mapM_ (hPutStrLn stderr. toStr) ss
           where toStr (LCT.S yt) = T.unpack yt
+
+dedupMarketPriceDirectives
+  :: Maybe FilePath
+  -> [YPriceDirective]
+  -> IO [YPriceDirective]
+dedupMarketPriceDirectives Nothing directives = return directives
+dedupMarketPriceDirectives (Just outputPath) directives = do
+  existingKeys <- readExistingPriceKeys outputPath
+  return $ dedupPriceDirectives existingKeys directives
+
+readExistingPriceKeys :: FilePath -> IO (S.Set PriceKey)
+readExistingPriceKeys outputPath = do
+  content <- try (TIO.readFile outputPath) :: IO (Either SomeException T.Text)
+  return $ case content of
+    Left _ -> S.empty
+    Right text ->
+      S.fromList $ mapMaybe parsePriceDirectiveKey $ T.lines text
+
+writeMarketPriceLines :: Maybe FilePath -> [String] -> IO ()
+writeMarketPriceLines Nothing linesToWrite =
+  mapM_ (hPutStrLn stdout) linesToWrite
+writeMarketPriceLines (Just outputPath) linesToWrite =
+  withFile outputPath AppendMode $ \handleOut ->
+    mapM_ (hPutStrLn handleOut) linesToWrite
+
+addUpdateHeader :: Maybe FilePath -> [String] -> IO [String]
+addUpdateHeader Nothing linesToWrite = return linesToWrite
+addUpdateHeader (Just _) [] = return []
+addUpdateHeader (Just _) linesToWrite = do
+  today <- TI.localDay . TI.zonedTimeToLocalTime <$> TI.getZonedTime
+  return $ priceUpdateHeaderLines today linesToWrite
 
 displayCommodityInfo :: CliOpts -> IO (Either Error LCT.CommodityInfo)
 displayCommodityInfo opts = do
