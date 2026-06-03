@@ -9,3 +9,4 @@ main = do
   hspec testCommoditiesTags
   hspec testMarketPrices
   hspec testDecodeTickerInfo
+  hspec testQuoteCache

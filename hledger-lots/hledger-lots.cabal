@@ -49,7 +49,9 @@ library
     , case-insensitive
     , containers
     , data-default
+    , directory
     , extra
+    , filepath
     , hledger >=1.32.1 && <1.33
     , hledger-lib >=1.32.1 && <1.33
     , http-client

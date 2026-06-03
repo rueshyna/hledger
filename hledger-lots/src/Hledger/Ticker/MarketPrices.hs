@@ -14,10 +14,14 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as MA
+import qualified Data.ByteString.Lazy as LB
 import           GHC.Generics (Generic)
 import           Data.Time as TI
 import qualified Data.Time.Clock.POSIX as D
 import           Data.Scientific as S
+import           System.Directory (createDirectoryIfMissing, doesFileExist, getHomeDirectory)
+import           System.FilePath ((</>), takeDirectory)
+import           Control.Exception (SomeException, try)
 
 import qualified Hledger.Ticker.CommoditiesTags as L
 import qualified Hledger.Ticker.Config as C
@@ -29,6 +33,10 @@ newtype Timestamp = Timestamp TI.UTCTime deriving (Generic, Show, Eq)
 instance J.FromJSON Timestamp where
   parseJSON
     i = Timestamp . D.posixSecondsToUTCTime . fromInteger <$> J.parseJSON i
+
+instance J.ToJSON Timestamp where
+  toJSON (Timestamp t) =
+    J.toJSON (floor (D.utcTimeToPOSIXSeconds t) :: Integer)
 
 data TickerInfo = TickerInfo
   { tksymbol :: L.YTicker
@@ -50,6 +58,92 @@ instance J.FromJSON TickerInfo where
       Nothing -> J.prependFailure "Decode TickerInfo fail" $ J.typeMismatch "TickerInfo" j
 
   parseJSON j = J.prependFailure "Not expected returned body" $ J.typeMismatch "TickerInfo" j
+
+data CachedQuote = CachedQuote
+  { cqSymbol :: L.YTicker
+  , cqMarketTime :: Timestamp
+  , cqPrice :: Scientific
+  , cqUnit :: T.Text
+  , cqFetchedAt :: TI.UTCTime
+  }
+  deriving (Show, Generic, Eq)
+
+instance J.FromJSON CachedQuote
+instance J.ToJSON CachedQuote
+
+type QuoteCache = MA.Map L.YTicker CachedQuote
+
+quoteCacheTtl :: TI.NominalDiffTime
+quoteCacheTtl = 12 * 60 * 60
+
+tickerToCache :: TI.UTCTime -> TickerInfo -> CachedQuote
+tickerToCache fetchedAt ti =
+  CachedQuote
+    { cqSymbol = tksymbol ti
+    , cqMarketTime = tkmarkettime ti
+    , cqPrice = tkprice ti
+    , cqUnit = tkunit ti
+    , cqFetchedAt = fetchedAt
+    }
+
+cachedToTicker :: CachedQuote -> TickerInfo
+cachedToTicker cq =
+  TickerInfo
+    { tksymbol = cqSymbol cq
+    , tkmarkettime = cqMarketTime cq
+    , tkprice = cqPrice cq
+    , tkunit = cqUnit cq
+    }
+
+isFreshCachedQuote :: TI.UTCTime -> CachedQuote -> Bool
+isFreshCachedQuote now cq =
+  TI.diffUTCTime now (cqFetchedAt cq) < quoteCacheTtl
+
+splitCachedTickers :: TI.UTCTime -> Bool -> QuoteCache -> YTickers -> ([TickerInfo], YTickers)
+splitCachedTickers now refresh cache tickers
+  | refresh = ([], tickers)
+  | otherwise = foldr splitTicker ([], []) tickers
+  where
+    splitTicker ticker (cached, missing) =
+      case MA.lookup ticker cache of
+        Just cq | isFreshCachedQuote now cq ->
+          (cachedToTicker cq : cached, missing)
+        _ -> (cached, ticker : missing)
+
+mergeTickerInfos :: TI.UTCTime -> QuoteCache -> [TickerInfo] -> QuoteCache
+mergeTickerInfos now =
+  foldr insertTicker
+  where
+    insertTicker ti = MA.insert (tksymbol ti) (tickerToCache now ti)
+
+quoteCachePath :: IO FilePath
+quoteCachePath = do
+  home <- getHomeDirectory
+  return $ home </> ".cache" </> "hledger-lots" </> "yahoo-quotes.json"
+
+readQuoteCache :: IO QuoteCache
+readQuoteCache = do
+  cachePath <- quoteCachePath
+  exists <- doesFileExist cachePath
+  if not exists
+    then return MA.empty
+    else do
+      content <- try (LB.readFile cachePath) :: IO (Either SomeException LB.ByteString)
+      return $ case content of
+        Left _ -> MA.empty
+        Right bytes -> case J.eitherDecode bytes of
+          Left _ -> MA.empty
+          Right cache -> cache
+
+writeQuoteCache :: QuoteCache -> IO ()
+writeQuoteCache cache = do
+  cachePath <- quoteCachePath
+  _ <- try
+    ( do
+        createDirectoryIfMissing True (takeDirectory cachePath)
+        LB.writeFile cachePath (J.encode cache)
+    ) :: IO (Either SomeException ())
+  return ()
 
 formatUTCTime :: Timestamp -> String
 formatUTCTime (Timestamp t) = formatTime defaultTimeLocale "%Y-%m-%d" t
@@ -102,6 +196,21 @@ instance J.FromJSON TickerInfoResponse where
         (J.unexpected $ J.Object v)
 
 type YTickers = [L.YTicker]
+
+crawCached :: Bool -> C.ApiKey -> YTickers -> IO (Either Error [TickerInfo])
+crawCached refresh apiKey tickers = do
+  now <- TI.getCurrentTime
+  cache <- readQuoteCache
+  let (cached, missing) = splitCachedTickers now refresh cache tickers
+  case missing of
+    [] -> return $ Right cached
+    _ -> do
+      fetched <- craw apiKey missing
+      case fetched of
+        Left e -> return $ Left e
+        Right infos -> do
+          writeQuoteCache $ mergeTickerInfos now cache infos
+          return $ Right (cached <> infos)
 
 craw :: C.ApiKey -> YTickers -> IO (Either Error [TickerInfo])
 craw (C.AK key) ss = do

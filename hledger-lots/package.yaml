@@ -54,6 +54,8 @@ library:
     - aeson
     - case-insensitive
     - bytestring
+    - directory
+    - filepath
     - time
     - scientific
     - yaml

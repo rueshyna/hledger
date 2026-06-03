@@ -59,6 +59,7 @@ data CommodityInfo = CS
   } deriving (Show, Generic, Eq)
 
 instance A.ToJSONKey Group
+instance A.ToJSONKey YTicker
 instance A.ToJSON YTicker
 instance A.ToJSON Name
 instance A.ToJSON Alias
@@ -69,6 +70,7 @@ instance A.ToJSON Group
 instance A.ToJSON CommodityInfo
 
 instance A.FromJSONKey Group
+instance A.FromJSONKey YTicker
 instance A.FromJSON YTicker
 instance A.FromJSON Name
 instance A.FromJSON Alias

@@ -25,6 +25,13 @@ commodityInfoFlag = flagNone
 isDisplayCommodityInfo :: CliOpts -> Bool
 isDisplayCommodityInfo = boolopt "display-commodity-info" . rawopts_
 
+refreshFlag :: Flag RawOpts
+refreshFlag = flagNone
+  ["refresh"] (setboolopt "refresh") "Refresh Yahoo quote cache."
+
+isRefresh :: CliOpts -> Bool
+isRefresh = boolopt "refresh" . rawopts_
+
 cmdmode :: Mode RawOpts
 cmdmode = hledgerCommandMode (unlines
     -- Command name, then --help text, then _FLAGS; empty help lines get stripped:
@@ -35,7 +42,7 @@ cmdmode = hledgerCommandMode (unlines
   ,""
   ,"_FLAGS"
   ])
-  [ commodityInfoFlag, outputFormatFlag ["txt","csv"] ]
+  [ commodityInfoFlag, refreshFlag, outputFormatFlag ["txt","csv"] ]
   [ generalflagsgroup1 ] [] ([], Just $ argsFlag "[ARGS]")  -- or Nothing
 
 -- only support Csv
@@ -104,7 +111,7 @@ fetchMarketPrice out opts = do
       price <- case (apiToken, yTickers) of
         (_, Right []) -> return $ Right []
         _ -> do
-          priceM <- sequence $ craw <$> apiToken <*> yTickers
+          priceM <- sequence $ crawCached (isRefresh opts) <$> apiToken <*> yTickers
           return $ join priceM
 
       let pdirectiveWithAlias :: Either Error (LCT.CommodityNames -> LM.TickerInfo -> (LCT.CommodityNames, YPriceDirective))
